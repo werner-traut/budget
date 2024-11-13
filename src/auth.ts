@@ -38,9 +38,9 @@ export const config = {
     }),
   ],
   callbacks: {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async jwt({ token, account, profile }) {
       if (!token.email) return token;
-      console.log("jwt callback:", token, account, profile);
 
       try {
         // Always fetch/create Supabase user ID based on email

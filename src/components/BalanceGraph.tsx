@@ -127,13 +127,6 @@ export function BalanceGraph() {
                 dot={false}
                 strokeWidth={2}
               />
-              <Line
-                type="monotone"
-                dataKey="Daily Expenses"
-                stroke="#00C49F"
-                dot={false}
-                strokeWidth={2}
-              />
             </LineChart>
           </ResponsiveContainer>
         </div>

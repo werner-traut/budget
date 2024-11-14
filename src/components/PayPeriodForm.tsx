@@ -8,22 +8,17 @@ export default function PayPeriodForm({
   onSubmit,
   onClose,
   periodType,
-  defaultStartDate,
 }: {
   period?: PayPeriod | null;
   onSubmit: (period: Partial<PayPeriod>) => Promise<void>;
   onClose: () => void;
   periodType: PeriodType;
-  defaultStartDate: string;
 }) {
   const [formData, setFormData] = useState({
     period_type: periodType, // Use the provided periodType instead of defaulting
-    start_date: period?.start_date
-      ? formatDateForDisplay(period.start_date)
-      : defaultStartDate
-      ? formatDateForDisplay(defaultStartDate)
-      : formatDateForDisplay(new Date()),
+    start_date: period?.start_date || formatDateForDisplay(new Date()),
     salary_amount: period?.salary_amount || 0,
+    id: period?.id,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {

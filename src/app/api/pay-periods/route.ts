@@ -19,6 +19,7 @@ export async function GET() {
       .from("pay_periods")
       .select("*")
       .eq("user_id", session.user.id)
+      .neq("period_type", "CLOSED_PERIOD")
       .order("start_date", { ascending: false });
 
     if (error) throw error;

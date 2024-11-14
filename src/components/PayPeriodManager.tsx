@@ -11,6 +11,7 @@ const PERIOD_TYPES: PeriodType[] = [
   "NEXT_PERIOD",
   "PERIOD_AFTER",
   "FUTURE_PERIOD",
+  "CLOSED_PERIOD",
 ];
 
 export function PayPeriodManager() {
@@ -21,7 +22,6 @@ export function PayPeriodManager() {
   const [selectedPeriodType, setSelectedPeriodType] = useState<PeriodType>(
     PERIOD_TYPES[0]
   );
-  const [defaultStartDate, setDefaultStartDate] = useState<string>("");
 
   useEffect(() => {
     fetchPeriods();
@@ -42,47 +42,68 @@ export function PayPeriodManager() {
   };
 
   const handleAddPeriod = async () => {
+    // Get all periods except CLOSED_PERIOD
+    const periodsToShift = periods.filter(
+      (p) => p.period_type !== "CLOSED_PERIOD"
+    );
+
+    // Calculate new period mappings
+    const periodShifts = [
+      { from: "FUTURE_PERIOD", to: "PERIOD_AFTER" },
+      { from: "PERIOD_AFTER", to: "NEXT_PERIOD" },
+      { from: "NEXT_PERIOD", to: "CURRENT_PERIOD" },
+      { from: "CURRENT_PERIOD", to: "CLOSED_PERIOD" },
+    ];
+
     try {
-      // First check and cascade if needed
-      await fetch("/api/pay-periods/cascade", {
-        method: "POST",
+      // Update existing periods
+      const updatePromises = periodShifts.map(async ({ from, to }) => {
+        const period = periodsToShift.find((p) => p.period_type === from);
+        if (!period) return;
+
+        await fetch(`/api/pay-periods/${period.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...period,
+            period_type: to,
+          }),
+        });
       });
 
-      // Find the latest period's start date
-      const latestPeriod = periods
-        .filter((p) => p.period_type !== "CLOSED_PERIOD")
-        .sort(
-          (a, b) =>
-            new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
-        )[0];
+      await Promise.all(updatePromises);
 
-      const defaultStartDate = latestPeriod
-        ? new Date(latestPeriod.start_date)
-        : new Date();
-
-      // Add 14 days (or your preferred period length)
-      defaultStartDate.setDate(defaultStartDate.getDate() + 14);
-
-      setSelectedPeriod(null);
-      setSelectedPeriodType("FUTURE_PERIOD");
-      setShowForm(true);
-      setDefaultStartDate(defaultStartDate.toISOString().split("T")[0]);
-
-      // Refresh periods after cascade
-      await fetchPeriods();
+      // Set up new FUTURE_PERIOD form with today's date
+      const futurePeriod = periodsToShift.find(
+        (p) => p.period_type === "FUTURE_PERIOD"
+      );
+      if (futurePeriod) {
+        setSelectedPeriod(null);
+        setSelectedPeriodType("FUTURE_PERIOD");
+        setShowForm(true);
+      }
     } catch (error) {
-      console.error("Failed to handle period addition:", error);
+      console.error("Error updating periods:", error);
     }
   };
 
   const handleSubmit = async (period: Partial<PayPeriod>) => {
     try {
-      const response = await fetch("/api/pay-periods", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(period),
-      });
-      if (!response.ok) throw new Error("Failed to create period");
+      if (period.id) {
+        const response = await fetch(`/api/pay-periods/${period.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(period),
+        });
+        if (!response.ok) throw new Error("Failed to update period");
+      } else {
+        const response = await fetch("/api/pay-periods", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(period),
+        });
+        if (!response.ok) throw new Error("Failed to create period");
+      }
       await fetchPeriods();
       setShowForm(false);
     } catch (error) {
@@ -106,6 +127,7 @@ export function PayPeriodManager() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {PERIOD_TYPES.map((type) => {
+          if (type === "CLOSED_PERIOD") return null;
           const period = periods.find((p) => p.period_type === type);
           return (
             <Card
@@ -165,7 +187,6 @@ export function PayPeriodManager() {
             setSelectedPeriod(null);
             setSelectedPeriodType(PERIOD_TYPES[0]);
           }}
-          defaultStartDate={defaultStartDate}
         />
       )}
     </div>

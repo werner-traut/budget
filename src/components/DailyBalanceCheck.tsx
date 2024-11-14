@@ -4,40 +4,23 @@
 import { useEffect, useState } from "react";
 import { DailyBalanceModal } from "./DailyBalanceModal";
 
-export function DailyBalanceCheck() {
+interface DailyBalanceCheckProps {
+  onDailyBalanceChange: (balance: number) => void;
+}
+
+export function DailyBalanceCheck({
+  onDailyBalanceChange,
+}: DailyBalanceCheckProps) {
   const [showModal, setShowModal] = useState(false);
   const [currentBalance, setCurrentBalance] = useState<number | undefined>(
     undefined
   );
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkDailyBalance = async () => {
-      try {
-        setIsLoading(true);
-        // Check if we have a balance for today
-        const today = new Date().toISOString().split("T")[0];
-        const response = await fetch(`/api/daily-balance?date=${today}`);
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.balance !== null) {
-            setCurrentBalance(data.balance ?? undefined);
-          } else {
-            setShowModal(true);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to check daily balance:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkDailyBalance();
-  }, []);
-
-  if (isLoading) return null;
+    if (!currentBalance) {
+      setShowModal(true);
+    }
+  }, [currentBalance]);
 
   return (
     <DailyBalanceModal
@@ -55,6 +38,7 @@ export function DailyBalanceCheck() {
 
           const data = await response.json();
           setCurrentBalance(data.balance);
+          onDailyBalanceChange(data.balance);
           setShowModal(false);
         } catch (error) {
           console.error("Failed to save balance:", error);

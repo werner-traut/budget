@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -20,6 +20,13 @@ export function DailyBalanceModal({
   const [balance, setBalance] = useState(currentBalance?.toString() || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const balanceInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && balanceInputRef.current) {
+      balanceInputRef.current.focus();
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +68,7 @@ export function DailyBalanceModal({
               </label>
               <input
                 type="number"
+                ref={balanceInputRef}
                 step="0.01"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}

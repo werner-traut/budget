@@ -47,6 +47,10 @@ export function Dashboard() {
     setEntries(updatedEntries);
   };
 
+  const handleDailyBalanceChange = (balance: number) => {
+    setDailyBalance(balance);
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -134,6 +138,7 @@ export function Dashboard() {
             entries={entries}
             onEntriesChange={handleEntriesChange}
             dailyBalance={dailyBalance}
+            onDailyBalanceChange={handleDailyBalanceChange}
           />
         )}
         {activeTab === "periods" && <PayPeriodManager />}

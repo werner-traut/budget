@@ -18,12 +18,14 @@ interface BudgetViewProps {
   entries: BudgetEntry[];
   onEntriesChange: (entries: BudgetEntry[]) => void;
   dailyBalance: number | null;
+  onDailyBalanceChange: (balance: number) => void;
 }
 
 export function BudgetView({
   entries,
   onEntriesChange,
   dailyBalance,
+  onDailyBalanceChange,
 }: BudgetViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
@@ -128,7 +130,9 @@ export function BudgetView({
                   : "Not checked today"}
               </p>
             </div>
-            {dailyBalance === null && <DailyBalanceCheck />}
+            {dailyBalance === null && (
+              <DailyBalanceCheck onDailyBalanceChange={onDailyBalanceChange} />
+            )}
           </div>
         </CardContent>
       </Card>

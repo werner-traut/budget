@@ -275,8 +275,14 @@ export function BudgetSummary({
                   <div className="space-y-2">
                     {period.entries.length > 0 ? (
                       period.entries.map((entry) => (
-                        <div key={entry.id} className="flex justify-between">
+                        <div
+                          key={entry.id}
+                          className="grid grid-cols-[1fr,auto,auto] gap-2"
+                        >
                           <span>{entry.name}</span>
+                          <span className="text-gray-500 text-sm">
+                            {formatDateForDisplay(entry.due_date)}
+                          </span>
                           <span>${entry.amount.toFixed(2)}</span>
                         </div>
                       ))

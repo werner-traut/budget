@@ -64,8 +64,12 @@ export function BudgetSummary({
 
         const periodsData = await periodsResponse.json();
         const settingsData = await settingsResponse.json();
+        const processedData = periodsData.map((item: PayPeriod) => ({
+          ...item,
+          salary_amount: Number(item.salary_amount), // Converts the string to a number
+        }));
 
-        setPayPeriods(periodsData);
+        setPayPeriods(processedData);
         setAdhocSettings(settingsData);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -89,7 +93,7 @@ export function BudgetSummary({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    let previousRemaining = dailyBalance ? dailyBalance : 0;
+    let previousRemaining = Number(dailyBalance) ? Number(dailyBalance) : 0;
 
     return sortedPeriods.reduce((acc, period, index) => {
       const nextPeriod = sortedPeriods[index + 1];
@@ -248,7 +252,7 @@ export function BudgetSummary({
             </div>
           ) : (
             <div className="text-2xl font-bold">
-              ${adhocSettings.daily_amount.toFixed(2)}/day
+              ${Number(adhocSettings.daily_amount).toFixed(2)}/day
             </div>
           )}
         </CardContent>
@@ -283,7 +287,7 @@ export function BudgetSummary({
                           <span className="text-gray-500 text-sm">
                             {formatDateForDisplay(entry.due_date)}
                           </span>
-                          <span>${entry.amount.toFixed(2)}</span>
+                          <span>${Number(entry.amount).toFixed(2)}</span>
                         </div>
                       ))
                     ) : (
@@ -294,11 +298,11 @@ export function BudgetSummary({
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Pay</span>
-                      <span>${period.salary_amount.toFixed(2)}</span>
+                      <span>${Number(period.salary_amount).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total Expenses</span>
-                      <span>${period.totalExpenses.toFixed(2)}</span>
+                      <span>${Number(period.totalExpenses).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Days remaining</span>
@@ -306,7 +310,7 @@ export function BudgetSummary({
                     </div>
                     <div className="flex justify-between">
                       <span>Total Adhoc</span>
-                      <span>${period.adhocTotal.toFixed(2)}</span>
+                      <span>${Number(period.adhocTotal).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-bold">
                       <span>Balance</span>
@@ -317,7 +321,7 @@ export function BudgetSummary({
                             : "text-green-600"
                         }
                       >
-                        ${period.remaining.toFixed(2)}
+                        ${Number(period.remaining).toFixed(2)}
                       </span>
                     </div>
                   </div>

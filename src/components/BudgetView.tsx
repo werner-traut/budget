@@ -126,7 +126,7 @@ export function BudgetView({
               <p className="text-sm text-gray-500">Today&apos;s Balance</p>
               <p className="text-2xl font-bold">
                 {dailyBalance !== null
-                  ? `$${dailyBalance.toFixed(2)}`
+                  ? `$${Number(dailyBalance).toFixed(2)}`
                   : "Not checked today"}
               </p>
             </div>
@@ -170,7 +170,9 @@ export function BudgetView({
                   entries.map((entry) => (
                     <tr key={entry.id} className="hover:bg-gray-50">
                       <td className="p-3">{entry.name}</td>
-                      <td className="p-3">${entry.amount.toFixed(2)}</td>
+                      <td className="p-3">
+                        ${Number(entry.amount).toFixed(2)}
+                      </td>
                       <td className="p-3">
                         {formatDateForDisplay(entry.due_date)}
                       </td>

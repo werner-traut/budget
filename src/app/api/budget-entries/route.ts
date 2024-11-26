@@ -1,13 +1,8 @@
 // src/app/api/budget-entries/route.ts
 import { auth } from "@/auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { CreateBudgetEntryDto } from "@/types/budget";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET() {
   const session = await auth();
@@ -17,15 +12,16 @@ export async function GET() {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("budget_items")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("due_date", { ascending: true });
+    const budgetItems = await prisma.budget_items.findMany({
+      where: {
+        user_id: session.user.id,
+      },
+      orderBy: {
+        due_date: "asc",
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(budgetItems);
   } catch (error) {
     console.error("Failed to fetch budget entries:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
@@ -42,20 +38,16 @@ export async function POST(req: Request) {
   try {
     const body: CreateBudgetEntryDto = await req.json();
 
-    const { data, error } = await supabase
-      .from("budget_items")
-      .insert({
+    const budgetItem = await prisma.budget_items.create({
+      data: {
         user_id: session.user.id,
         name: body.name,
         amount: body.amount,
-        due_date: body.due_date,
-      })
-      .select()
-      .single();
+        due_date: new Date(body.due_date),
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(budgetItem);
   } catch (error) {
     console.error("Failed to create budget entry:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

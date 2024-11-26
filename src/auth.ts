@@ -1,33 +1,32 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { NextAuthConfig } from "next-auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+async function getOrCreateUser(email: string) {
+  try {
+    // Try to find existing user
+    const user = await prisma.users.findUnique({
+      where: {
+        email: email,
+      },
+    });
 
-async function getSupabaseUser(email: string) {
-  const { data, error } = await supabase
-    .from("users")
-    .select("id")
-    .eq("email", email)
-    .single();
+    if (!user) {
+      // Create new user if doesn't exist
+      const newUser = await prisma.users.create({
+        data: {
+          email: email,
+        },
+      });
+      return newUser.id;
+    }
 
-  if (error || !data) {
-    // Create new user if doesn't exist
-    const { data: newUser, error: createError } = await supabase
-      .from("users")
-      .insert({ email })
-      .select("id")
-      .single();
-
-    if (createError) throw createError;
-    return newUser.id;
+    return user.id;
+  } catch (error) {
+    console.error("Error in getOrCreateUser:", error);
+    throw error;
   }
-
-  return data.id;
 }
 
 export const config = {
@@ -43,20 +42,22 @@ export const config = {
       if (!token.email) return token;
 
       try {
-        // Always fetch/create Supabase user ID based on email
-        const supabaseUserId = await getSupabaseUser(token.email);
-        token.supabaseUserId = supabaseUserId;
+        // Always fetch/create user ID based on email
+        const userId = await getOrCreateUser(token.email);
+        token.userId = userId;
 
         // Update user info if available
         if (profile) {
-          await supabase
-            .from("users")
-            .update({
+          await prisma.users.update({
+            where: {
+              id: userId,
+            },
+            data: {
               name: profile.name,
               avatar_url: profile.picture,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", supabaseUserId);
+              updated_at: new Date(),
+            },
+          });
         }
       } catch (error) {
         console.error("Error in jwt callback:", error);
@@ -65,8 +66,8 @@ export const config = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.supabaseUserId) {
-        session.user.id = token.supabaseUserId as string;
+      if (session.user && token.userId) {
+        session.user.id = token.userId as string;
       }
       return session;
     },
@@ -82,13 +83,6 @@ export const {
   signIn,
   signOut,
 } = NextAuth(config);
-
-// Types
-// declare module "next-auth/jwt" {
-//   interface JWT {
-//     supabaseUserId?: string;
-//   }
-// }
 
 declare module "next-auth" {
   interface Session {

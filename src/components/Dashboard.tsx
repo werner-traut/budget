@@ -26,14 +26,23 @@ export function Dashboard() {
       const response = await fetch("/api/budget-entries");
       if (!response.ok) throw new Error("Failed to fetch budget entries");
       const data = await response.json();
-      setEntries(data);
+      const processedData = data.map((item: BudgetEntry) => ({
+        ...item,
+        amount: Number(item.amount), // Converts the string to a number
+      }));
+      setEntries(processedData);
 
       // Check if we have a balance for today
       const today = new Date().toISOString().split("T")[0];
       const balanceResponse = await fetch(`/api/daily-balance?date=${today}`);
       if (balanceResponse.ok) {
         const balanceData = await balanceResponse.json();
-        setDailyBalance(balanceData?.balance);
+        const processedData = {
+          ...balanceData,
+          balance:
+            balanceData.balance === null ? null : Number(balanceData.balance), // Converts the string to a number
+        };
+        setDailyBalance(processedData?.balance);
       }
     } catch (err) {
       console.error("Error fetching entries:", err);

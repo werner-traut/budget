@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { formatDateForAPI } from "@/lib/utils/date";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Input validation schema
+const dailyBalanceSchema = z.object({
+  balance: z.number().min(0, "Balance must be positive"),
+});
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -16,27 +17,43 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { balance } = await req.json();
+    const body = await req.json();
+    const validated = dailyBalanceSchema.parse(body);
 
-    const { data, error } = await supabase
-      .from("daily_balances")
-      .upsert(
-        {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dailyBalance = await prisma.daily_balances.upsert({
+      where: {
+        user_id_date: {
+          // Using the unique constraint
           user_id: session.user.id,
-          balance,
-          date: new Date().toISOString().split("T")[0],
+          date: today,
         },
-        {
-          onConflict: "user_id,date",
-        }
-      )
-      .select()
-      .single();
+      },
+      update: {
+        balance: validated.balance,
+        updated_at: new Date(),
+      },
+      create: {
+        user_id: session.user.id,
+        balance: validated.balance,
+        date: today,
+      },
+      include: {
+        users: true, // Include user data if needed
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(dailyBalance);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({ message: "Invalid input", errors: error.errors }),
+        { status: 400 }
+      );
+    }
+
     console.error("Failed to save balance:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
@@ -53,31 +70,47 @@ export async function GET(req: Request) {
   const dateParam = url.searchParams.get("date");
 
   try {
-    const query = supabase
-      .from("daily_balances")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("date", { ascending: false }); // Default ascending order for latest
-
     if (dateParam) {
-      // Filter by date if provided
-      query.eq("date", formatDateForAPI(dateParam)); // Parse date parameter
-    } else {
-      // Limit to 1 record if no date provided
-      query.limit(1);
-    }
+      // Query for specific date
+      const parsedDate = new Date(formatDateForAPI(dateParam));
 
-    const { data, error } = await query.single();
+      const balance = await prisma.daily_balances.findUnique({
+        where: {
+          user_id_date: {
+            user_id: session.user.id,
+            date: parsedDate,
+          },
+        },
+        include: {
+          users: true,
+        },
+      });
 
-    if (error) {
-      if (error.code === "PGRST116") {
-        // No balance found
+      if (!balance) {
         return NextResponse.json({ balance: null });
       }
-      throw error;
-    }
 
-    return NextResponse.json(data);
+      return NextResponse.json(balance);
+    } else {
+      // Get most recent balance
+      const balance = await prisma.daily_balances.findFirst({
+        where: {
+          user_id: session.user.id,
+        },
+        orderBy: {
+          date: "desc",
+        },
+        include: {
+          users: true,
+        },
+      });
+
+      if (!balance) {
+        return NextResponse.json({ balance: null });
+      }
+
+      return NextResponse.json(balance);
+    }
   } catch (error) {
     console.error("Failed to fetch balance:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

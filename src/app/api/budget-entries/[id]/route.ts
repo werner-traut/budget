@@ -1,12 +1,7 @@
 // src/api/budget-entries/[id]/route.ts
 import { auth } from "@/auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -18,19 +13,20 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.pathname.split("/").pop(); // Get ID from URL path
 
   try {
-    const { data, error } = await supabase
-      .from("budget_items")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", session.user.id)
-      .single();
+    const budgetItem = await prisma.budget_items.findUnique({
+      where: {
+        id_user_id: {
+          id: id,
+          user_id: session.user.id,
+        },
+      },
+    });
 
-    if (error) throw error;
-    if (!data) {
+    if (!budgetItem) {
       return new NextResponse("Not found", { status: 404 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(budgetItem);
   } catch (error) {
     console.error("Failed to fetch budget entry:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
@@ -51,33 +47,35 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
 
     // First verify the entry belongs to the user
-    const { data: existingEntry, error: fetchError } = await supabase
-      .from("budget_items")
-      .select("id")
-      .eq("id", id)
-      .eq("user_id", session.user.id)
-      .single();
+    const existingEntry = await prisma.budget_items.findUnique({
+      where: {
+        id_user_id: {
+          id,
+          user_id: session.user.id,
+        },
+      },
+    });
 
-    if (fetchError || !existingEntry) {
+    if (!existingEntry) {
       return new NextResponse("Not found", { status: 404 });
     }
 
-    const { data, error } = await supabase
-      .from("budget_items")
-      .update({
+    const budgetItem = await prisma.budget_items.update({
+      where: {
+        id_user_id: {
+          id,
+          user_id: session.user.id,
+        },
+      },
+      data: {
         name: body.name,
         amount: body.amount,
         due_date: body.due_date,
         updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .eq("user_id", session.user.id)
-      .select()
-      .single();
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(budgetItem);
   } catch (error) {
     console.error("Failed to update budget entry:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
@@ -96,24 +94,27 @@ export async function DELETE(req: NextRequest) {
 
   try {
     // First verify the entry belongs to the user
-    const { data: existingEntry, error: fetchError } = await supabase
-      .from("budget_items")
-      .select("id")
-      .eq("id", id)
-      .eq("user_id", session.user.id)
-      .single();
+    const existingEntry = await prisma.budget_items.findUnique({
+      where: {
+        id_user_id: {
+          id,
+          user_id: session.user.id,
+        },
+      },
+    });
 
-    if (fetchError || !existingEntry) {
+    if (!existingEntry) {
       return new NextResponse("Not found", { status: 404 });
     }
 
-    const { error } = await supabase
-      .from("budget_items")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", session.user.id);
-
-    if (error) throw error;
+    await prisma.budget_items.delete({
+      where: {
+        id_user_id: {
+          id,
+          user_id: session.user.id,
+        },
+      },
+    });
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

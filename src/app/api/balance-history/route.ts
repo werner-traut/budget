@@ -1,11 +1,6 @@
 import { auth } from "@/auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET() {
   const session = await auth();
@@ -15,16 +10,20 @@ export async function GET() {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("balance_history")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("balance_date", { ascending: true })
-      .limit(30); // Last 30 records
+    const balanceHistory = await prisma.balance_history.findMany({
+      where: {
+        user_id: session.user.id,
+      },
+      orderBy: {
+        balance_date: "asc",
+      },
+      take: 30, // Last 30 records
+      include: {
+        users: true, // Include user data if needed
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(balanceHistory);
   } catch (error) {
     console.error("Failed to fetch balance history:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
@@ -40,32 +39,39 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Ensure midnight UTC
 
-    // Use upsert to update existing record or create new one
-    const { data, error } = await supabase
-      .from("balance_history")
-      .upsert(
-        {
+    const balanceHistory = await prisma.balance_history.upsert({
+      where: {
+        user_id_balance_date: {
+          // Using the unique constraint
           user_id: session.user.id,
           balance_date: today,
-          bank_balance: body.bankBalance,
-          current_period_end_balance: body.currentPeriodEndBalance,
-          next_period_end_balance: body.nextPeriodEndBalance,
-          period_after_end_balance: body.periodAfterEndBalance,
-          updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: "user_id,balance_date",
-          ignoreDuplicates: false,
-        }
-      )
-      .select()
-      .single();
+      },
+      update: {
+        bank_balance: body.bankBalance,
+        current_period_end_balance: body.currentPeriodEndBalance,
+        next_period_end_balance: body.nextPeriodEndBalance,
+        period_after_end_balance: body.periodAfterEndBalance,
+        updated_at: new Date(),
+      },
+      create: {
+        user_id: session.user.id,
+        balance_date: today,
+        bank_balance: body.bankBalance,
+        current_period_end_balance: body.currentPeriodEndBalance,
+        next_period_end_balance: body.nextPeriodEndBalance,
+        period_after_end_balance: body.periodAfterEndBalance,
+        updated_at: new Date(),
+      },
+      include: {
+        users: true, // Include user data if needed
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(balanceHistory);
   } catch (error) {
     console.error("Failed to update balance history:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

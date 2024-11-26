@@ -1,52 +1,48 @@
 import { auth } from "@/auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Validate the period type enum
+const PeriodTypeEnum = z.enum([
+  "CURRENT_PERIOD",
+  "NEXT_PERIOD",
+  "PERIOD_AFTER",
+  "FUTURE_PERIOD",
+  "CLOSED_PERIOD",
+]);
 
-export async function GET() {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from("pay_periods")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .neq("period_type", "CLOSED_PERIOD")
-      .order("start_date", { ascending: false });
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Failed to fetch pay periods:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
-}
+// Input validation schema
+const payPeriodSchema = z.object({
+  period_type: PeriodTypeEnum,
+  start_date: z.string().transform((str) => new Date(str)),
+  salary_amount: z.number().positive("Salary must be positive"),
+});
 
 async function validatePeriodOrder(
   userId: string,
-  newPeriod: { period_type: string; start_date: string }
+  newPeriod: { period_type: string; start_date: Date }
 ) {
   // Get all existing periods
-  const { data: periods } = await supabase
-    .from("pay_periods")
-    .select("period_type, start_date")
-    .eq("user_id", userId)
-    .neq("period_type", "CLOSED_PERIOD")
-    .order("start_date", { ascending: true });
+  const periods = await prisma.pay_periods.findMany({
+    where: {
+      user_id: userId,
+      period_type: {
+        not: "CLOSED_PERIOD",
+      },
+    },
+    orderBy: {
+      start_date: "asc",
+    },
+    select: {
+      period_type: true,
+      start_date: true,
+    },
+  });
 
   // Add new period to the list and sort
-  const allPeriods = [...(periods || []), newPeriod].sort(
-    (a, b) =>
-      new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+  const allPeriods = [...periods, newPeriod].sort(
+    (a, b) => a.start_date.getTime() - b.start_date.getTime()
   );
 
   // Check order matches period types
@@ -56,6 +52,7 @@ async function validatePeriodOrder(
     "PERIOD_AFTER",
     "FUTURE_PERIOD",
   ];
+
   const activePeriods = allPeriods.filter(
     (p) => p.period_type !== "CLOSED_PERIOD"
   );
@@ -64,6 +61,36 @@ async function validatePeriodOrder(
     if (activePeriods[i].period_type !== correctOrder[i]) {
       throw new Error("Periods must be in correct chronological order");
     }
+  }
+}
+
+export async function GET() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  try {
+    const payPeriods = await prisma.pay_periods.findMany({
+      where: {
+        user_id: session.user.id,
+        period_type: {
+          not: "CLOSED_PERIOD",
+        },
+      },
+      orderBy: {
+        start_date: "desc",
+      },
+      include: {
+        users: true,
+      },
+    });
+
+    return NextResponse.json(payPeriods);
+  } catch (error) {
+    console.error("Failed to fetch pay periods:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
 
@@ -77,36 +104,44 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // Validate required fields
-    if (!body.period_type || !body.start_date || !body.salary_amount) {
-      return new NextResponse("Missing required fields", { status: 400 });
-    }
+    // Validate input
+    const validatedData = payPeriodSchema.parse(body);
 
     // Validate period order
     await validatePeriodOrder(session.user.id, {
-      period_type: body.period_type,
-      start_date: body.start_date,
+      period_type: validatedData.period_type,
+      start_date: validatedData.start_date,
     });
 
-    const { data, error } = await supabase
-      .from("pay_periods")
-      .insert({
+    const payPeriod = await prisma.pay_periods.create({
+      data: {
         user_id: session.user.id,
-        period_type: body.period_type,
-        start_date: body.start_date,
-        salary_amount: body.salary_amount,
-      })
-      .select()
-      .single();
+        period_type: validatedData.period_type,
+        start_date: validatedData.start_date,
+        salary_amount: validatedData.salary_amount,
+      },
+      include: {
+        users: true,
+      },
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(payPeriod);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({
+          message: "Invalid input",
+          errors: error.errors,
+        }),
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Error) {
+      return new NextResponse(error.message, { status: 400 });
+    }
+
     console.error("Failed to create pay period:", error);
-    return new NextResponse(
-      error instanceof Error ? error.message : "Internal Server Error",
-      { status: 500 }
-    );
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

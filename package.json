@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "prisma:generate": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma generate",
     "prisma:migrate": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma migrate dev",
     "prisma:studio": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma studio",

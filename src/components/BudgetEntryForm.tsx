@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { XCircle } from "lucide-react";
+import { formatDateForDisplay } from "@/lib/utils/date";
 
 interface BudgetEntryFormProps {
   isOpen: boolean;
@@ -27,7 +28,9 @@ export function BudgetEntryForm({
 }: BudgetEntryFormProps) {
   const [name, setName] = useState(initialValues?.name || "");
   const [amount, setAmount] = useState(initialValues?.amount?.toString() || "");
-  const [date, setDate] = useState(initialValues?.date || "");
+  const [date, setDate] = useState(
+    formatDateForDisplay(initialValues?.date ?? new Date())
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);

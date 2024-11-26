@@ -40,7 +40,11 @@ export function BudgetView({
       });
       if (!response.ok) throw new Error("Failed to create entry");
       const newEntry = await response.json();
-      const updatedEntries = [...entries, newEntry].sort(
+      const processedEntry = {
+        ...newEntry,
+        amount: Number(newEntry.amount), // Converts the string to a number
+      };
+      const updatedEntries = [...entries, processedEntry].sort(
         (a, b) =>
           new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
       );
@@ -61,8 +65,12 @@ export function BudgetView({
       });
       if (!response.ok) throw new Error("Failed to update entry");
       const updatedEntry = await response.json();
+      const processedEntry = {
+        ...updatedEntry,
+        amount: Number(updatedEntry.amount), // Converts the string to a number
+      };
       const updatedEntries = entries
-        .map((entry) => (entry.id === entryId ? updatedEntry : entry))
+        .map((entry) => (entry.id === entryId ? processedEntry : entry))
         .sort(
           (a, b) =>
             new Date(a.due_date).getTime() - new Date(b.due_date).getTime()

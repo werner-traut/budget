@@ -8,10 +8,11 @@ export async function middleware(req: NextRequest) {
 
   const token = await getToken({ req, secret: process.env.AUTH_SECRET });
   const isLoggedIn = !!token;
-  console.log("isLoggedIn", isLoggedIn, token);
+  console.log("Token:", token);
+  console.log("Cookies:", req.cookies);
+  console.log("Headers:", Object.fromEntries(req.headers));
 
   const isOnAuthPage = req.nextUrl.pathname.startsWith("/auth");
-  console.log("isOnAuthPage", isOnAuthPage);
 
   if (isOnAuthPage) {
     if (isLoggedIn) {

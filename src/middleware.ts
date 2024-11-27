@@ -1,33 +1,23 @@
-// /src/middleware.ts
-import { getToken } from "next-auth/jwt";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
-export async function middleware(req: NextRequest) {
-  console.log(process.env.AUTH_SECRET);
-
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
-  const isLoggedIn = !!token;
-  console.log("Token:", token);
-  console.log("Cookies:", req.cookies);
-  console.log("Headers:", Object.fromEntries(req.headers));
-
+import { auth } from "./auth";
+// @ts-expect-error trying something
+export default auth((req) => {
+  const isLoggedIn = !!req.auth;
   const isOnAuthPage = req.nextUrl.pathname.startsWith("/auth");
 
   if (isOnAuthPage) {
     if (isLoggedIn) {
-      return NextResponse.redirect(new URL("/", req.url));
+      return Response.redirect(new URL("/", req.nextUrl));
     }
-    return NextResponse.next();
+    return null;
   }
 
   if (!isLoggedIn) {
-    return NextResponse.redirect(new URL("/auth/signin", req.url));
+    return Response.redirect(new URL("/auth/signin", req.nextUrl));
   }
+  return null;
+});
 
-  return NextResponse.next();
-}
-
+// Optionally use matcher to only protect specific routes
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

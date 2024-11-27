@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { formatDateForAPI } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { z } from "zod";

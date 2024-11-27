@@ -1,6 +1,6 @@
 // src/app/api/budget-entries/route.ts
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { CreateBudgetEntryDto } from "@/types/budget";
 

@@ -17,6 +17,7 @@
   "dependencies": {
     "@auth/core": "^0.37.3",
     "@prisma/client": "^5.22.0",
+    "@prisma/extension-accelerate": "^1.2.1",
     "@radix-ui/react-slot": "^1.1.0",
     "@vercel/analytics": "^1.4.0",
     "@vercel/speed-insights": "^1.1.0",

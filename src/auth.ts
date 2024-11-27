@@ -1,9 +1,7 @@
-export const runtime = "nodejs";
-
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { NextAuthConfig } from "next-auth";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 async function getOrCreateUser(email: string) {
   try {
@@ -32,19 +30,6 @@ async function getOrCreateUser(email: string) {
 }
 
 export const config = {
-  secret: process.env.AUTH_SECRET,
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        domain: ".wernertraut.com",
-      },
-    },
-  },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,

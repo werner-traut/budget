@@ -1,13 +1,13 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["fullTextSearch","postgresqlExtensions"]
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  extensions        = [hstore(schema: "myHstoreSchema"), pg_trgm, postgis(version: "2.1")]
+  extensions = [hstore(schema: "myHstoreSchema"), pg_trgm, postgis(version: "2.1")]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

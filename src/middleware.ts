@@ -6,7 +6,10 @@ import type { NextRequest } from "next/server";
 export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.AUTH_SECRET });
   const isLoggedIn = !!token;
+  console.log("isLoggedIn", isLoggedIn, token);
+
   const isOnAuthPage = req.nextUrl.pathname.startsWith("/auth");
+  console.log("isOnAuthPage", isOnAuthPage);
 
   if (isOnAuthPage) {
     if (isLoggedIn) {

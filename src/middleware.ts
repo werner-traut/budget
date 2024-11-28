@@ -1,23 +1,30 @@
 import { auth } from "./auth";
-// @ts-expect-error trying something
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
+import { NextResponse } from "next/server";
+
+export default auth(async (req) => {
+  const isAuthenticated = !!req.auth;
   const isOnAuthPage = req.nextUrl.pathname.startsWith("/auth");
 
+  // Handle the auth page access scenario
   if (isOnAuthPage) {
-    if (isLoggedIn) {
+    // If user is logged in and tries to access auth pages, redirect to home
+    if (isAuthenticated) {
       return Response.redirect(new URL("/", req.nextUrl));
     }
-    return null;
+    // If not logged in, allow access to auth pages
+    return NextResponse.next();
   }
 
-  if (!isLoggedIn) {
+  // Handle protected routes
+  if (!isAuthenticated) {
+    // If not logged in, redirect to sign in page
     return Response.redirect(new URL("/auth/signin", req.nextUrl));
   }
-  return null;
+
+  // For authenticated users accessing non-auth pages, allow the request
+  return NextResponse.next();
 });
 
-// Optionally use matcher to only protect specific routes
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

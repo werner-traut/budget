@@ -5,30 +5,25 @@ import prisma from "@/lib/prisma";
 
 async function getOrCreateUser(email: string) {
   try {
-    // Try to find existing user
+    // First try to find the user
     const user = await prisma.users.findUnique({
-      where: {
-        email: email,
-      },
+      where: { email },
     });
 
-    if (!user) {
-      // Create new user if doesn't exist
-      const newUser = await prisma.users.create({
-        data: {
-          email: email,
-        },
-      });
-      return newUser.id;
-    }
+    if (user) return user.id;
 
-    return user.id;
+    // If no user exists, create one
+    const newUser = await prisma.users.create({
+      data: { email },
+    });
+    return newUser.id;
   } catch (error) {
     console.error("Error in getOrCreateUser:", error);
     throw error;
   }
 }
 
+// Main configuration object
 export const config = {
   providers: [
     Google({
@@ -37,21 +32,19 @@ export const config = {
     }),
   ],
   callbacks: {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async jwt({ token, account, profile }) {
+    async jwt({ token, profile }) {
+      // Only proceed if we have an email
       if (!token.email) return token;
 
       try {
-        // Always fetch/create user ID based on email
+        // Get or create user and attach ID to token
         const userId = await getOrCreateUser(token.email);
         token.userId = userId;
 
-        // Update user info if available
+        // Update user profile if we have new information
         if (profile) {
           await prisma.users.update({
-            where: {
-              id: userId,
-            },
+            where: { id: userId },
             data: {
               name: profile.name,
               avatar_url: profile.picture,
@@ -66,6 +59,7 @@ export const config = {
       return token;
     },
     async session({ session, token }) {
+      // Attach user ID to session if available
       if (session.user && token.userId) {
         session.user.id = token.userId as string;
       }
@@ -75,14 +69,31 @@ export const config = {
   pages: {
     signIn: "/auth/signin",
   },
+  // // Add these new configurations for Edge compatibility
+  // trustHost: true,
+  // cookies: {
+  //   sessionToken: {
+  //     name: `__Secure-next-auth.session-token`,
+  //     options: {
+  //       httpOnly: true,
+  //       sameSite: "lax",
+  //       path: "/",
+  //       secure: true,
+  //     },
+  //   },
+  // },
 } satisfies NextAuthConfig;
 
+// Create the auth handlers
 export const {
   handlers: { GET, POST },
   auth,
   signIn,
   signOut,
 } = NextAuth(config);
+
+// Specify Edge runtime
+export const runtime = "edge";
 
 declare module "next-auth" {
   interface Session {

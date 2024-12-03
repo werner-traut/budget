@@ -75,6 +75,9 @@ export async function GET(req: Request) {
       const parsedDate = new Date(formatDateForAPI(dateParam));
 
       const balance = await prisma.daily_balances.findUnique({
+        cacheStrategy: {
+          ttl: 3600,
+        },
         where: {
           user_id_date: {
             user_id: session.user.id,

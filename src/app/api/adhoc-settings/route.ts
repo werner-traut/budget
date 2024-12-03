@@ -12,6 +12,9 @@ export async function GET() {
   try {
     // Try to find existing settings
     let adhocSettings = await prisma.adhoc_settings.findUnique({
+      cacheStrategy: {
+        ttl: 3600,
+      },
       where: {
         user_id: session.user.id,
       },

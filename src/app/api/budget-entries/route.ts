@@ -13,6 +13,9 @@ export async function GET() {
 
   try {
     const budgetItems = await prisma.budget_items.findMany({
+      cacheStrategy: {
+        swr: 60,
+      },
       where: {
         user_id: session.user.id,
       },

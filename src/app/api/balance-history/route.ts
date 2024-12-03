@@ -11,6 +11,9 @@ export async function GET() {
 
   try {
     const balanceHistory = await prisma.balance_history.findMany({
+      cacheStrategy: {
+        swr: 60,
+      },
       where: {
         user_id: session.user.id,
       },

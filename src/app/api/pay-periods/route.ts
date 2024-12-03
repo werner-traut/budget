@@ -25,6 +25,9 @@ async function validatePeriodOrder(
 ) {
   // Get all existing periods
   const periods = await prisma.pay_periods.findMany({
+    cacheStrategy: {
+      ttl: 3600,
+    },
     where: {
       user_id: userId,
       period_type: {

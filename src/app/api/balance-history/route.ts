@@ -2,12 +2,15 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
 
   if (!session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
+
+  const url = new URL(req.url);
+  const duration = url.searchParams.get("days") || "30";
 
   try {
     const balanceHistory = await prisma.balance_history.findMany({
@@ -20,7 +23,7 @@ export async function GET() {
       orderBy: {
         balance_date: "asc",
       },
-      take: 30, // Last 30 records
+      take: +duration,
       include: {
         users: true, // Include user data if needed
       },

@@ -5,7 +5,7 @@ import { PayPeriodManager } from "./PayPeriodManager";
 import { BudgetView } from "./BudgetView";
 import { BudgetSummary } from "./BudgetSummary";
 import type { BudgetEntry } from "@/types/budget";
-import { BalanceGraph } from "./BalanceGraph";
+import BalanceGraph from "./BalanceGraph";
 
 type ActiveTab = "budget" | "periods" | "summary" | "graph";
 

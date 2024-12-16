@@ -13,19 +13,19 @@ export async function GET(req: Request) {
   const duration = url.searchParams.get("days") || "30";
 
   try {
+    
     const balanceHistory = await prisma.balance_history.findMany({
       cacheStrategy: {
         swr: 60,
       },
       where: {
         user_id: session.user.id,
+        balance_date: {
+          gte: new Date(Date.now() - parseInt(duration) * 24 * 60 * 60 * 1000)
+        }
       },
       orderBy: {
         balance_date: "asc",
-      },
-      take: +duration,
-      include: {
-        users: true, // Include user data if needed
       },
     });
 

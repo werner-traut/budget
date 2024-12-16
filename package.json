@@ -8,11 +8,9 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate",
-    "prisma:generate": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma generate",
-    "prisma:migrate": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma migrate dev",
-    "prisma:studio": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma studio",
-    "prisma:pull": "node -r ts-node/register/transpile-only -r tsconfig-paths/register prisma/load-environment.ts && prisma db pull"
+    "postinstall": "prisma generate --no-engine",
+    "generate": "prisma generate",
+    "dev:generate": "prisma generate"
   },
   "dependencies": {
     "@auth/core": "^0.37.3",
@@ -24,6 +22,7 @@
     "@vercel/speed-insights": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "immer": "^10.1.1",
     "lucide-react": "^0.456.0",
     "next": "15.1.0",
     "next-auth": "^5.0.0-beta.25",
@@ -33,7 +32,8 @@
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@types/node": "^20",

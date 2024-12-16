@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -25,6 +25,7 @@ import {
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import type { BalanceHistory } from '@/types/balanceHistory';
 
 // Define the shape of our data point
 interface DataPoint {
@@ -53,40 +54,30 @@ interface CustomTooltipProps
   label?: string;
 }
 
-interface BalanceHistory {
-  id: string;
-  bank_balance: number;
-  current_period_end_balance: number;
-  next_period_end_balance: number;
-  period_after_end_balance: number;
-  balance_date: string;
-  created_at: string;
-  updated_at: string;
-}
-
 function BalanceGraph() {
-  const [history, setHistory] = useState<BalanceHistory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState("30");
+  const [history, setHistory] = useState<BalanceHistory[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBalanceHistory = async (duration: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await fetch(`/api/balance-history?days=${duration}`);
+      if (!response.ok) throw new Error('Failed to fetch balance history');
+      const data = await response.json();
+      setHistory(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch balance history');
+      console.error('Error fetching balance history:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/balance-history?days=${duration}`);
-        if (!response.ok) throw new Error("Failed to fetch balance history");
-        const data = await response.json();
-        setHistory(data);
-      } catch (err) {
-        console.error("Error fetching balance history:", err);
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchHistory();
+    fetchBalanceHistory(duration);
   }, [duration]);
 
   if (isLoading) {

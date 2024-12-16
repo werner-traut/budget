@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { PayPeriod, PeriodType } from "@/types/periods";
+import { type PayPeriod, type PeriodType } from "@/types/periods";
 import PayPeriodForm from "./PayPeriodForm";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { useBudgetStore } from "@/store/useBudgetStore";
 
 const PERIOD_TYPES: PeriodType[] = [
   "CURRENT_PERIOD",
@@ -15,8 +16,12 @@ const PERIOD_TYPES: PeriodType[] = [
 ];
 
 export function PayPeriodManager() {
-  const [periods, setPeriods] = useState<PayPeriod[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { 
+    payPeriods,
+    fetchPayPeriods,
+    setError 
+  } = useBudgetStore();
+  
   const [showForm, setShowForm] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PayPeriod | null>(null);
   const [isAddingNewPeriod, setIsAddingNewPeriod] = useState(false);
@@ -24,32 +29,9 @@ export function PayPeriodManager() {
     PERIOD_TYPES[0]
   );
 
-  useEffect(() => {
-    fetchPeriods();
-  }, []);
-
-  const fetchPeriods = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/pay-periods");
-      if (!response.ok) throw new Error("Failed to fetch periods");
-      const data = await response.json();
-      const processedData = data.map((item: PayPeriod) => ({
-        ...item,
-        salary_amount: Number(item.salary_amount),
-        start_date: new Date(item.start_date).toISOString().split("T")[0], // Ensure date is in YYYY-MM-DD format
-      }));
-      setPeriods(processedData);
-    } catch (error) {
-      console.error("Error fetching periods:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const shiftPeriods = async () => {
     // Get all periods except CLOSED_PERIOD
-    const periodsToShift = periods.filter(
+    const periodsToShift = payPeriods.filter(
       (p) => p.period_type !== "CLOSED_PERIOD"
     );
 
@@ -81,10 +63,10 @@ export function PayPeriodManager() {
       });
 
       await Promise.all(updatePromises);
-      await fetchPeriods(); // Refresh the periods after successful shift
+      await fetchPayPeriods(); // Refresh the periods after successful shift
     } catch (error) {
       console.error("Error shifting periods:", error);
-      throw error; // Propagate error to be handled by caller
+      throw error;
     }
   };
 
@@ -101,6 +83,7 @@ export function PayPeriodManager() {
         // Shift periods before adding a new one
         await shiftPeriods();
       }
+      
       if (period.id) {
         // Handling update of existing period
         const response = await fetch(`/api/pay-periods/${period.id}`, {
@@ -109,7 +92,6 @@ export function PayPeriodManager() {
           body: JSON.stringify(period),
         });
         if (!response.ok) throw new Error("Failed to update period");
-        await fetchPeriods();
       } else {
         // Handling creation of new period
         const response = await fetch("/api/pay-periods", {
@@ -118,13 +100,13 @@ export function PayPeriodManager() {
           body: JSON.stringify(period),
         });
         if (!response.ok) throw new Error("Failed to create period");
-
-        await fetchPeriods();
       }
+      
+      await fetchPayPeriods();
       setShowForm(false);
     } catch (error) {
       console.error("Error handling period:", error);
-      // You might want to show an error message to the user here
+      setError(error instanceof Error ? error.message : "An error occurred");
     }
   };
 
@@ -134,8 +116,6 @@ export function PayPeriodManager() {
     setSelectedPeriodType(PERIOD_TYPES[0]);
     setIsAddingNewPeriod(false);
   };
-
-  if (isLoading) return null;
 
   return (
     <div className="space-y-4">
@@ -152,7 +132,7 @@ export function PayPeriodManager() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {PERIOD_TYPES.map((type) => {
           if (type === "CLOSED_PERIOD") return null;
-          const period = periods.find((p) => p.period_type === type);
+          const period = payPeriods.find((p) => p.period_type === type);
           return (
             <Card
               key={type}

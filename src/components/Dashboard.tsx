@@ -4,64 +4,49 @@ import { useState, useEffect } from "react";
 import { PayPeriodManager } from "./PayPeriodManager";
 import { BudgetView } from "./BudgetView";
 import { BudgetSummary } from "./BudgetSummary";
-import type { BudgetEntry } from "@/types/budget";
 import BalanceGraph from "./BalanceGraph";
+import { useBudgetStore } from "@/store/useBudgetStore";
 
 type ActiveTab = "budget" | "periods" | "summary" | "graph";
 
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("budget");
-  const [entries, setEntries] = useState<BudgetEntry[]>([]);
-  const [dailyBalance, setDailyBalance] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    isInitializing,
+    error,
+    initialized,
+    fetchEntries,
+    fetchDailyBalance,
+    fetchAdhocSettings,
+    fetchPayPeriods,
+    setInitialized,
+    setInitializing
+  } = useBudgetStore();
 
   useEffect(() => {
-    fetchEntries();
-  }, []);
+    if (!initialized) {
+      const initializeData = async () => {
+        try {
+          await Promise.all([
+            fetchEntries(),
+            fetchDailyBalance(),
+            fetchAdhocSettings(),
+            fetchPayPeriods()
+          ]);
+        } catch (error) {
+          console.error('Error initializing data:', error);
+        } finally {
+          setInitialized(true);
+          setInitializing(false);
+        }
+      };
 
-  const fetchEntries = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/budget-entries");
-      if (!response.ok) throw new Error("Failed to fetch budget entries");
-      const data = await response.json();
-      const processedData = data.map((item: BudgetEntry) => ({
-        ...item,
-        amount: Number(item.amount), // Converts the string to a number
-      }));
-      setEntries(processedData);
-
-      // Check if we have a balance for today
-      const today = new Date().toISOString().split("T")[0];
-      const balanceResponse = await fetch(`/api/daily-balance?date=${today}`);
-      if (balanceResponse.ok) {
-        const balanceData = await balanceResponse.json();
-        const processedData = {
-          ...balanceData,
-          balance:
-            balanceData.balance === null ? null : Number(balanceData.balance), // Converts the string to a number
-        };
-        setDailyBalance(processedData?.balance);
-      }
-    } catch (err) {
-      console.error("Error fetching entries:", err);
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
+      initializeData();
     }
-  };
-
-  const handleEntriesChange = (updatedEntries: BudgetEntry[]) => {
-    setEntries(updatedEntries);
-  };
-
-  const handleDailyBalanceChange = (balance: number) => {
-    setDailyBalance(balance);
-  };
+  }, [initialized, fetchEntries, fetchDailyBalance, fetchAdhocSettings, setInitialized, fetchPayPeriods, setInitializing]);
 
   // Loading state
-  if (isLoading) {
+  if (isInitializing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -143,16 +128,11 @@ export function Dashboard() {
       {/* Content */}
       <div className="max-w-7xl mx-auto p-4">
         {activeTab === "budget" && (
-          <BudgetView
-            entries={entries}
-            onEntriesChange={handleEntriesChange}
-            dailyBalance={dailyBalance}
-            onDailyBalanceChange={handleDailyBalanceChange}
-          />
+          <BudgetView />
         )}
         {activeTab === "periods" && <PayPeriodManager />}
         {activeTab === "summary" && (
-          <BudgetSummary entries={entries} dailyBalance={dailyBalance} />
+          <BudgetSummary />
         )}
         {activeTab === "graph" && <BalanceGraph />}
       </div>

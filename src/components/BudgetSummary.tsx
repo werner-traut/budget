@@ -4,19 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { BudgetEntry } from "@/types/budget";
 import { formatDateForDisplay } from "@/lib/utils/date";
-
-interface PayPeriod {
-  id: string;
-  start_date: string;
-  period_type:
-    | "CURRENT_PERIOD"
-    | "NEXT_PERIOD"
-    | "PERIOD_AFTER"
-    | "FUTURE_PERIOD";
-  salary_amount: number;
-}
+import { useBudgetStore } from "@/store/useBudgetStore";
+import type { BudgetEntry } from "@/types/budget";
 
 interface PeriodSummary {
   entries: BudgetEntry[];
@@ -29,74 +19,29 @@ interface PeriodSummary {
   remaining: number;
 }
 
-interface AdhocSettings {
-  daily_amount: number;
-}
-
-export function BudgetSummary({
-  entries,
-  dailyBalance,
-}: {
-  entries: BudgetEntry[];
-  dailyBalance: number | null;
-}) {
-  const [payPeriods, setPayPeriods] = useState<PayPeriod[]>([]);
-  const [adhocSettings, setAdhocSettings] = useState<AdhocSettings>({
-    daily_amount: 40,
-  });
+export function BudgetSummary() {
+  const { 
+    entries, 
+    payPeriods,
+    dailyBalance,
+    adhocSettings,
+    setAdhocSettings,
+    setError 
+  } = useBudgetStore();
+  
   const [isEditingAdhoc, setIsEditingAdhoc] = useState(false);
   const [newDailyAmount, setNewDailyAmount] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [periodsResponse, settingsResponse] = await Promise.all([
-          fetch("/api/pay-periods"),
-          fetch("/api/adhoc-settings"),
-        ]);
-
-        if (!periodsResponse.ok) throw new Error("Failed to fetch pay periods");
-        if (!settingsResponse.ok)
-          throw new Error("Failed to fetch adhoc settings");
-
-        const periodsData = await periodsResponse.json();
-        const settingsData = await settingsResponse.json();
-        const processedData = periodsData.map((item: PayPeriod) => ({
-          ...item,
-          salary_amount: Number(item.salary_amount), // Converts the string to a number
-        }));
-
-        setPayPeriods(processedData);
-        setAdhocSettings(settingsData);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
 
   const periods = useMemo(() => {
     if (!payPeriods.length) return {};
-
-    const sortedPeriods = payPeriods.sort(
-      (a, b) =>
-        new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-    );
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let previousRemaining = Number(dailyBalance) ? Number(dailyBalance) : 0;
 
-    return sortedPeriods.reduce((acc, period, index) => {
-      const nextPeriod = sortedPeriods[index + 1];
+    return payPeriods.reduce((acc, period, index) => {
+      const nextPeriod = payPeriods[index + 1];
       const periodStart = new Date(period.start_date);
       const periodEnd = nextPeriod ? new Date(nextPeriod.start_date) : null;
 
@@ -201,12 +146,6 @@ export function BudgetSummary({
       setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
-
-  if (isLoading)
-    return (
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-    );
-  if (error) return <div className="text-red-600">Error: {error}</div>;
 
   const periodCards = [
     { key: "CURRENT_PERIOD", title: "This Period" },

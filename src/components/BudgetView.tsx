@@ -5,8 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Pencil, Trash2, CheckCircle } from "lucide-react";
 import { DailyBalanceCheck } from "./DailyBalanceCheck";
 import { BudgetEntryForm } from "./BudgetEntryForm";
-import type { BudgetEntry } from "@/types/budget";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { useBudgetStore } from "@/store/useBudgetStore";
+import type { BudgetEntry } from "@/types/budget";
 
 interface Entry {
   name: string;
@@ -14,24 +15,21 @@ interface Entry {
   due_date: string;
 }
 
-interface BudgetViewProps {
-  entries: BudgetEntry[];
-  onEntriesChange: (entries: BudgetEntry[]) => void;
-  dailyBalance: number | null;
-  onDailyBalanceChange: (balance: number) => void;
-}
-
-export function BudgetView({
-  entries,
-  onEntriesChange,
-  dailyBalance,
-  onDailyBalanceChange,
-}: BudgetViewProps) {
-  const [error, setError] = useState<string | null>(null);
+export function BudgetView() {
+  const { 
+    entries, 
+    dailyBalance,
+    setDailyBalance,
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    setError
+  } = useBudgetStore();
+  
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<BudgetEntry | null>(null);
 
-  const addNewEntry = async (entry: Entry) => {
+  const handleAddEntry = async (entry: Entry) => {
     try {
       const response = await fetch("/api/budget-entries", {
         method: "POST",
@@ -42,13 +40,9 @@ export function BudgetView({
       const newEntry = await response.json();
       const processedEntry = {
         ...newEntry,
-        amount: Number(newEntry.amount), // Converts the string to a number
+        amount: Number(newEntry.amount),
       };
-      const updatedEntries = [...entries, processedEntry].sort(
-        (a, b) =>
-          new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-      );
-      onEntriesChange(updatedEntries);
+      addEntry(processedEntry);
       setShowEntryForm(false);
     } catch (err) {
       console.error("Error adding entry:", err);
@@ -56,7 +50,7 @@ export function BudgetView({
     }
   };
 
-  const updateEntry = async (entryId: string, updatedData: Entry) => {
+  const handleUpdateEntry = async (entryId: string, updatedData: Entry) => {
     try {
       const response = await fetch(`/api/budget-entries/${entryId}`, {
         method: "PUT",
@@ -67,15 +61,9 @@ export function BudgetView({
       const updatedEntry = await response.json();
       const processedEntry = {
         ...updatedEntry,
-        amount: Number(updatedEntry.amount), // Converts the string to a number
+        amount: Number(updatedEntry.amount),
       };
-      const updatedEntries = entries
-        .map((entry) => (entry.id === entryId ? processedEntry : entry))
-        .sort(
-          (a, b) =>
-            new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-        );
-      onEntriesChange(updatedEntries);
+      updateEntry(entryId, processedEntry);
       setEditingEntry(null);
     } catch (err) {
       console.error("Error updating entry:", err);
@@ -83,7 +71,7 @@ export function BudgetView({
     }
   };
 
-  const deleteEntry = async (entryId: string) => {
+  const handleDeleteEntry = async (entryId: string) => {
     if (!window.confirm("Are you sure you want to delete this entry?")) return;
 
     try {
@@ -91,19 +79,19 @@ export function BudgetView({
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete entry");
-      onEntriesChange(entries.filter((entry) => entry.id !== entryId));
+      deleteEntry(entryId);
     } catch (err) {
       console.error("Error deleting entry:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
 
-  const markAsPaid = async (entry: BudgetEntry) => {
+  const handleMarkAsPaid = async (entry: BudgetEntry) => {
     const nextDueDate = new Date(entry.due_date);
     nextDueDate.setMonth(nextDueDate.getMonth() + 1);
 
     try {
-      await updateEntry(entry.id, {
+      await handleUpdateEntry(entry.id, {
         ...entry,
         due_date: nextDueDate.toISOString().split("T")[0],
       });
@@ -112,14 +100,6 @@ export function BudgetView({
       setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
-
-  if (error) {
-    return (
-      <div className="text-center text-red-600 py-8">
-        <p>Error: {error}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -131,7 +111,7 @@ export function BudgetView({
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Today&apos;s Balance</p>
+              <p className="text-sm text-gray-500">Today&apos; Balance</p>
               <p className="text-2xl font-bold">
                 {dailyBalance !== null
                   ? `$${Number(dailyBalance).toFixed(2)}`
@@ -139,7 +119,7 @@ export function BudgetView({
               </p>
             </div>
             {dailyBalance === null && (
-              <DailyBalanceCheck onDailyBalanceChange={onDailyBalanceChange} />
+              <DailyBalanceCheck onDailyBalanceChange={setDailyBalance} />
             )}
           </div>
         </CardContent>
@@ -193,14 +173,14 @@ export function BudgetView({
                           <Pencil className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => deleteEntry(entry.id)}
+                          onClick={() => handleDeleteEntry(entry.id)}
                           className="text-red-600 hover:text-red-800 p-1"
                           title="Delete"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => markAsPaid(entry)}
+                          onClick={() => handleMarkAsPaid(entry)}
                           className="text-green-600 hover:text-green-800 p-1"
                           title="Mark as Paid"
                         >
@@ -225,8 +205,8 @@ export function BudgetView({
           }}
           onSubmit={
             editingEntry
-              ? (data) => updateEntry(editingEntry.id, data)
-              : addNewEntry
+              ? (data) => handleUpdateEntry(editingEntry.id, data)
+              : handleAddEntry
           }
           initialValues={
             editingEntry

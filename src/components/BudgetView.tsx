@@ -8,6 +8,7 @@ import { BudgetEntryForm } from "./BudgetEntryForm";
 import { formatDateForDisplay } from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
+import { Button } from "@/components/ui/button";
 
 interface Entry {
   name: string;
@@ -28,6 +29,7 @@ export function BudgetView() {
   
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<BudgetEntry | null>(null);
+  const [showDailyBalanceModal, setShowDailyBalanceModal] = useState(false);
 
   const handleAddEntry = async (entry: Entry) => {
     try {
@@ -111,15 +113,24 @@ export function BudgetView() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Today&apos; Balance</p>
+              <p className="text-sm text-gray-500">Today&apos;s Balance</p>
               <p className="text-2xl font-bold">
                 {dailyBalance !== null
                   ? `$${Number(dailyBalance).toFixed(2)}`
                   : "Not checked today"}
               </p>
             </div>
-            {dailyBalance === null && (
+            {dailyBalance === null ? (
               <DailyBalanceCheck onDailyBalanceChange={setDailyBalance} />
+            ) : (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowDailyBalanceModal(true)}
+                className="ml-2"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </CardContent>
@@ -217,6 +228,15 @@ export function BudgetView() {
                 }
               : undefined
           }
+        />
+      )}
+
+      {showDailyBalanceModal && (
+        <DailyBalanceCheck
+          onDailyBalanceChange={setDailyBalance}
+          initialBalance={dailyBalance}
+          isOpen={showDailyBalanceModal}
+          onClose={() => setShowDailyBalanceModal(false)}
         />
       )}
     </div>

@@ -6,26 +6,35 @@ import { DailyBalanceModal } from "./DailyBalanceModal";
 
 interface DailyBalanceCheckProps {
   onDailyBalanceChange: (balance: number) => void;
+  initialBalance?: number | null;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export function DailyBalanceCheck({
   onDailyBalanceChange,
+  initialBalance,
+  isOpen: controlledIsOpen,
+  onClose,
 }: DailyBalanceCheckProps) {
   const [showModal, setShowModal] = useState(false);
   const [currentBalance, setCurrentBalance] = useState<number | undefined>(
-    undefined
+    initialBalance !== null ? initialBalance : undefined
   );
 
   useEffect(() => {
-    if (!currentBalance) {
+    if (!currentBalance && controlledIsOpen === undefined) {
       setShowModal(true);
     }
-  }, [currentBalance]);
+  }, [currentBalance, controlledIsOpen]);
+
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : showModal;
+  const handleClose = onClose || (() => setShowModal(false));
 
   return (
     <DailyBalanceModal
-      isOpen={showModal}
-      onClose={() => setShowModal(false)}
+      isOpen={isOpen}
+      onClose={handleClose}
       onSubmit={async (balance) => {
         try {
           const response = await fetch("/api/daily-balance", {
@@ -39,7 +48,7 @@ export function DailyBalanceCheck({
           const data = await response.json();
           setCurrentBalance(data.balance);
           onDailyBalanceChange(data.balance);
-          setShowModal(false);
+          handleClose();
         } catch (error) {
           console.error("Failed to save balance:", error);
           throw error;

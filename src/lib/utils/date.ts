@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns";
-import { utcToZonedTime } from "date-fns-tz";
+import { toZonedTime } from "date-fns-tz";
 
 /**
  * Takes a date string (e.g., from the database) and formats it for display.
@@ -35,12 +35,12 @@ export function formatDateForAPI(date: string): string {
  * @param timeZone - The target timezone (e.g., 'America/New_York').
  * @returns A new Date object in the specified timezone.
  */
-export function convertUTCToZonedTime(
+export function convertToZonedTime(
   date: string | Date,
   timeZone: string
 ): Date {
   const dateObj = typeof date === "string" ? new Date(date) : date;
-  return utcToZonedTime(dateObj, timeZone);
+  return toZonedTime(dateObj, timeZone);
 }
 
 /**

@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getTodayInUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -45,8 +46,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Ensure midnight UTC
+    const today = getTodayInUTC();
 
     const balanceHistory = await prisma.balance_history.upsert({
       where: {

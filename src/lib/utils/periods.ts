@@ -1,13 +1,12 @@
+import { getTodayInUTC } from "./date";
 import { PayPeriod, PeriodType } from "@/types/periods";
 
 export function shouldCascadePeriods(periods: PayPeriod[]): boolean {
   const nextPeriod = periods.find((p) => p.period_type === "NEXT_PERIOD");
   if (!nextPeriod) return false;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getTodayInUTC();
   const nextPeriodStart = new Date(nextPeriod.start_date);
-  nextPeriodStart.setHours(0, 0, 0, 0);
 
   return nextPeriodStart <= today;
 }

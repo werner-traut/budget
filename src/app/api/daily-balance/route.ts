@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { formatDateForAPI } from "@/lib/utils/date";
+import { formatDateForAPI, getTodayInUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -20,8 +20,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validated = dailyBalanceSchema.parse(body);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getTodayInUTC();
 
     const dailyBalance = await prisma.daily_balances.upsert({
       where: {

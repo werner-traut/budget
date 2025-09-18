@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatDateForDisplay } from "@/lib/utils/date";
+import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
 
@@ -35,8 +35,7 @@ export function BudgetSummary() {
   const periods = useMemo(() => {
     if (!payPeriods.length) return {};
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getTodayInUTC();
 
     let previousRemaining = Number(dailyBalance) ? Number(dailyBalance) : 0;
 

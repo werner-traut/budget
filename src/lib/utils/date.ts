@@ -1,5 +1,5 @@
-import { format, parseISO } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { parseISO } from "date-fns";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
 /**
  * Takes a date string (e.g., from the database) and formats it for display.
@@ -10,11 +10,10 @@ import { toZonedTime } from "date-fns-tz";
  */
 export function formatDateForDisplay(date: string | Date): string {
   const dateObj = typeof date === "string" ? parseISO(date) : date;
-  // We received a date from the database, which we assume is UTC.
-  // We want to display this date as it is, without timezone conversion.
-  // For example, 2024-01-01T00:00:00Z should be displayed as "2024-01-01".
-  // Using format with a UTC date object will correctly format it without shifting it.
-  return format(dateObj, "yyyy-MM-dd");
+  // We must format the date in UTC to prevent timezone conversion.
+  // The input date is treated as UTC midnight, and we want to display that same date,
+  // not the local date in the user's browser timezone.
+  return formatInTimeZone(dateObj, 'UTC', 'yyyy-MM-dd');
 }
 
 /**

@@ -1,18 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaClient as PrismaClientEdge } from "@prisma/client/edge";
-import { withAccelerate } from "@prisma/extension-accelerate";
 
 const prismaClientSingleton = () => {
-  // Use edge client with Accelerate when DATABASE_URL uses prisma:// protocol
-  // This happens in production (Vercel) with Prisma Accelerate
-  const databaseUrl = process.env.DATABASE_URL || "";
-  const useAccelerate = databaseUrl.startsWith("prisma://");
-
-  if (useAccelerate) {
-    return new PrismaClientEdge().$extends(withAccelerate());
-  }
-
-  // Use standard client for local development with direct PostgreSQL connection
+  // Always use standard PrismaClient - it works for both local and production
+  // The DATABASE_URL determines the behavior
   return new PrismaClient();
 };
 
@@ -24,7 +14,6 @@ declare const globalThis: {
 
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
-// Export with a consistent type to avoid union type issues
-export default prisma as PrismaClient;
+export default prisma;
 
 if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;

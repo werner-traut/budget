@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { CreateBudgetEntryDto } from "@/types/budget";
 
+export const runtime = 'nodejs';
+
 export async function GET() {
   const session = await auth();
 
@@ -12,14 +14,7 @@ export async function GET() {
   }
 
   try {
-    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
-    // @ts-expect-error - cacheStrategy is only available with Accelerate
     const budgetItems = await prisma.budget_items.findMany({
-      ...(useAccelerate && {
-        cacheStrategy: {
-          swr: 60,
-        },
-      }),
       where: {
         user_id: session.user.id,
       },

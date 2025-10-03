@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const runtime = 'nodejs';
+
 // Validate the period type enum
 const PeriodTypeEnum = z.enum([
   "CURRENT_PERIOD",
@@ -24,14 +26,7 @@ async function validatePeriodOrder(
   newPeriod: { period_type: string; start_date: Date }
 ) {
   // Get all existing periods
-  const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
-  // @ts-expect-error - cacheStrategy is only available with Accelerate
   const periods = await prisma.pay_periods.findMany({
-    ...(useAccelerate && {
-      cacheStrategy: {
-        ttl: 3600,
-      },
-    }),
     where: {
       user_id: userId,
       period_type: {

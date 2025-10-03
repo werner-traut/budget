@@ -4,6 +4,8 @@ import { formatDateForAPI, getTodayInUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const runtime = 'nodejs';
+
 // Input validation schema
 const dailyBalanceSchema = z.object({
   balance: z.number().min(0, "Balance must be positive"),
@@ -69,19 +71,11 @@ export async function GET(req: Request) {
   const dateParam = url.searchParams.get("date");
 
   try {
-    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
-
     if (dateParam) {
       // Query for specific date
       const parsedDate = new Date(formatDateForAPI(dateParam));
 
-      // @ts-expect-error - cacheStrategy is only available with Accelerate
       const balance = await prisma.daily_balances.findUnique({
-        ...(useAccelerate && {
-          cacheStrategy: {
-            ttl: 60,
-          },
-        }),
         where: {
           user_id_date: {
             user_id: session.user.id,

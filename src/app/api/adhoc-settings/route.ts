@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 export async function GET() {
   const session = await auth();
 
@@ -11,14 +13,7 @@ export async function GET() {
 
   try {
     // Try to find existing settings
-    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
-    // @ts-expect-error - cacheStrategy is only available with Accelerate
     let adhocSettings = await prisma.adhoc_settings.findUnique({
-      ...(useAccelerate && {
-        cacheStrategy: {
-          ttl: 3600,
-        },
-      }),
       where: {
         user_id: session.user.id,
       },

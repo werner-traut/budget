@@ -219,7 +219,7 @@ export function BudgetSummary() {
                       period.entries.map((entry) => (
                         <div
                           key={entry.id}
-                          className="grid grid-cols-[1fr,auto,auto] gap-2"
+                          className="grid grid-cols-[1fr_auto_auto] gap-2"
                         >
                           <span>{entry.name}</span>
                           <span className="text-gray-500 text-sm">

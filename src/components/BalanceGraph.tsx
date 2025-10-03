@@ -122,7 +122,7 @@ function BalanceGraph() {
   const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border rounded shadow">
+        <div className="bg-white p-4 border rounded shadow-sm">
           <p className="font-bold">{label}</p>
           {payload.map((entry: CustomTooltipPayloadItem) => (
             <p key={entry.name} style={{ color: entry.color }}>

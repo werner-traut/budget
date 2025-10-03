@@ -11,15 +11,19 @@ export async function GET() {
 
   try {
     // Try to find existing settings
+    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+    // @ts-expect-error - cacheStrategy is only available with Accelerate
     let adhocSettings = await prisma.adhoc_settings.findUnique({
-      cacheStrategy: {
-        ttl: 3600,
-      },
+      ...(useAccelerate && {
+        cacheStrategy: {
+          ttl: 3600,
+        },
+      }),
       where: {
         user_id: session.user.id,
       },
       include: {
-        users: true, // Include user data if needed
+        users: true,
       },
     });
 

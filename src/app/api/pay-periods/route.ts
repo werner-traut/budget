@@ -24,10 +24,14 @@ async function validatePeriodOrder(
   newPeriod: { period_type: string; start_date: Date }
 ) {
   // Get all existing periods
+  const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+  // @ts-expect-error - cacheStrategy is only available with Accelerate
   const periods = await prisma.pay_periods.findMany({
-    cacheStrategy: {
-      ttl: 3600,
-    },
+    ...(useAccelerate && {
+      cacheStrategy: {
+        ttl: 3600,
+      },
+    }),
     where: {
       user_id: userId,
       period_type: {

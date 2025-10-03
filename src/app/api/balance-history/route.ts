@@ -14,11 +14,14 @@ export async function GET(req: Request) {
   const duration = url.searchParams.get("days") || "30";
 
   try {
-    
+    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+    // @ts-expect-error - cacheStrategy is only available with Accelerate
     const balanceHistory = await prisma.balance_history.findMany({
-      cacheStrategy: {
-        swr: 60,
-      },
+      ...(useAccelerate && {
+        cacheStrategy: {
+          swr: 60,
+        },
+      }),
       where: {
         user_id: session.user.id,
         balance_date: {

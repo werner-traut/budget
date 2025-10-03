@@ -69,14 +69,19 @@ export async function GET(req: Request) {
   const dateParam = url.searchParams.get("date");
 
   try {
+    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+
     if (dateParam) {
       // Query for specific date
       const parsedDate = new Date(formatDateForAPI(dateParam));
 
+      // @ts-expect-error - cacheStrategy is only available with Accelerate
       const balance = await prisma.daily_balances.findUnique({
-        cacheStrategy: {
-          ttl: 60,
-        },
+        ...(useAccelerate && {
+          cacheStrategy: {
+            ttl: 60,
+          },
+        }),
         where: {
           user_id_date: {
             user_id: session.user.id,

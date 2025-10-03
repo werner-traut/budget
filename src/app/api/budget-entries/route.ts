@@ -12,10 +12,14 @@ export async function GET() {
   }
 
   try {
+    const useAccelerate = process.env.DATABASE_URL?.startsWith("prisma://");
+    // @ts-expect-error - cacheStrategy is only available with Accelerate
     const budgetItems = await prisma.budget_items.findMany({
-      cacheStrategy: {
-        swr: 60,
-      },
+      ...(useAccelerate && {
+        cacheStrategy: {
+          swr: 60,
+        },
+      }),
       where: {
         user_id: session.user.id,
       },

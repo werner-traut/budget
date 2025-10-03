@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { getTodayInUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 export async function GET(req: Request) {
   const session = await auth();
 
@@ -14,11 +16,7 @@ export async function GET(req: Request) {
   const duration = url.searchParams.get("days") || "30";
 
   try {
-    
     const balanceHistory = await prisma.balance_history.findMany({
-      cacheStrategy: {
-        swr: 60,
-      },
       where: {
         user_id: session.user.id,
         balance_date: {

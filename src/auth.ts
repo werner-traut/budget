@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import type { NextAuthConfig } from "next-auth";
 import prisma from "@/lib/prisma";
+import { authConfig } from "./auth.config";
 
 async function getOrCreateUser(email: string) {
   try {
@@ -23,8 +23,14 @@ async function getOrCreateUser(email: string) {
   }
 }
 
-// Main configuration object
-export const config = {
+// Create the auth handlers with full config including providers and callbacks
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth({
+  ...authConfig,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -66,34 +72,7 @@ export const config = {
       return session;
     },
   },
-  pages: {
-    signIn: "/auth/signin",
-  },
-  // // Add these new configurations for Edge compatibility
-  // trustHost: true,
-  // cookies: {
-  //   sessionToken: {
-  //     name: `__Secure-next-auth.session-token`,
-  //     options: {
-  //       httpOnly: true,
-  //       sameSite: "lax",
-  //       path: "/",
-  //       secure: true,
-  //     },
-  //   },
-  // },
-} satisfies NextAuthConfig;
-
-// Create the auth handlers
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth(config);
-
-// Specify Edge runtime
-export const runtime = "edge";
+});
 
 declare module "next-auth" {
   interface Session {

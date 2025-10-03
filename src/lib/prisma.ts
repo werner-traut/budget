@@ -1,12 +1,15 @@
-import { PrismaClient } from "@prisma/client/edge";
-import { withAccelerate } from "@prisma/extension-accelerate";
+import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
-  return new PrismaClient().$extends(withAccelerate());
+  // Always use standard PrismaClient - it works for both local and production
+  // The DATABASE_URL determines the behavior
+  return new PrismaClient();
 };
 
+type PrismaClientType = ReturnType<typeof prismaClientSingleton>;
+
 declare const globalThis: {
-  prismaGlobal: ReturnType<typeof prismaClientSingleton>;
+  prismaGlobal: PrismaClientType;
 } & typeof global;
 
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();

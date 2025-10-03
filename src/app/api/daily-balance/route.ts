@@ -4,6 +4,8 @@ import { formatDateForAPI, getTodayInUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const runtime = 'nodejs';
+
 // Input validation schema
 const dailyBalanceSchema = z.object({
   balance: z.number().min(0, "Balance must be positive"),
@@ -74,9 +76,6 @@ export async function GET(req: Request) {
       const parsedDate = new Date(formatDateForAPI(dateParam));
 
       const balance = await prisma.daily_balances.findUnique({
-        cacheStrategy: {
-          ttl: 60,
-        },
         where: {
           user_id_date: {
             user_id: session.user.id,

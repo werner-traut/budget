@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { NextResponse, NextRequest } from "next/server";
 import { z } from "zod";
 
+export const runtime = 'nodejs';
+
 // Validation schema for pay period updates
 const updatePayPeriodSchema = z.object({
   period_type: z

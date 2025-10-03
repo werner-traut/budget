@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       return new NextResponse(
         JSON.stringify({
           message: "Invalid input",
-          errors: error.errors,
+          errors: error.issues,
         }),
         { status: 400 }
       );

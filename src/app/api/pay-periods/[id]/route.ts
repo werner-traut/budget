@@ -76,7 +76,7 @@ export async function PUT(req: NextRequest) {
       return new NextResponse(
         JSON.stringify({
           message: "Invalid input",
-          errors: error.errors,
+          errors: error.issues,
         }),
         {
           status: 400,

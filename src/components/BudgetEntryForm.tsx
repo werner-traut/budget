@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { XCircle } from "lucide-react";
-import { formatDateForDisplay } from "@/lib/utils/date";
+import { formatDateForAPI, formatDateForDisplay } from "@/lib/utils/date";
 
 interface BudgetEntryFormProps {
   isOpen: boolean;
@@ -41,6 +41,14 @@ export function BudgetEntryForm({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setName(initialValues?.name || "");
+    setAmount(initialValues?.amount?.toString() || "");
+    setDate(formatDateForDisplay(initialValues?.date ?? new Date()));
+  }, [initialValues, isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +60,7 @@ export function BudgetEntryForm({
       await onSubmit({
         name,
         amount: parseFloat(amount),
-        due_date: date,
+        due_date: formatDateForAPI(date),
       });
       onClose();
     } catch (err) {

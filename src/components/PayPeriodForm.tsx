@@ -16,7 +16,9 @@ export default function PayPeriodForm({
 }) {
   const [formData, setFormData] = useState({
     period_type: periodType, // Use the provided periodType instead of defaulting
-    start_date: period?.start_date || formatDateForDisplay(new Date()),
+    start_date: period
+      ? formatDateForDisplay(period.start_date)
+      : formatDateForDisplay(new Date()),
     salary_amount: period?.salary_amount || 0,
     id: period?.id,
   });

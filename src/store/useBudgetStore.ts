@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
+import { getLocalDateString } from "@/lib/utils/date";
 import type { BudgetEntry } from '@/types/budget'
 import type { PayPeriod } from '@/types/periods'
 
@@ -125,7 +125,7 @@ export const useBudgetStore = create<BudgetState>()(
     fetchDailyBalance: async () => {
       const { setDailyBalance, setError } = get()
       try {
-        const today = formatDateForDisplay(getTodayInUTC());
+        const today = getLocalDateString();
         const response = await fetch(`/api/daily-balance?date=${today}`)
         if (!response.ok) throw new Error('Failed to fetch daily balance')
         const data = await response.json()

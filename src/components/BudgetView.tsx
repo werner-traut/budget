@@ -5,7 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Pencil, Trash2, CheckCircle } from "lucide-react";
 import { DailyBalanceCheck } from "./DailyBalanceCheck";
 import { BudgetEntryForm } from "./BudgetEntryForm";
-import { formatDateForDisplay } from "@/lib/utils/date";
+import {
+  addMonthsToDateString,
+  formatDateForAPI,
+  formatDateForDisplay,
+} from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
 import { Button } from "@/components/ui/button";
@@ -36,7 +40,10 @@ export function BudgetView() {
       const response = await fetch("/api/budget-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry),
+        body: JSON.stringify({
+          ...entry,
+          due_date: formatDateForAPI(entry.due_date),
+        }),
       });
       if (!response.ok) throw new Error("Failed to create entry");
       const newEntry = await response.json();
@@ -57,7 +64,10 @@ export function BudgetView() {
       const response = await fetch(`/api/budget-entries/${entryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedData),
+        body: JSON.stringify({
+          ...updatedData,
+          due_date: formatDateForAPI(updatedData.due_date),
+        }),
       });
       if (!response.ok) throw new Error("Failed to update entry");
       const updatedEntry = await response.json();
@@ -89,13 +99,13 @@ export function BudgetView() {
   };
 
   const handleMarkAsPaid = async (entry: BudgetEntry) => {
-    const nextDueDate = new Date(entry.due_date);
-    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+    const nextDueDate = addMonthsToDateString(entry.due_date, 1);
 
     try {
       await handleUpdateEntry(entry.id, {
-        ...entry,
-        due_date: nextDueDate.toISOString().split("T")[0],
+        name: entry.name,
+        amount: entry.amount,
+        due_date: nextDueDate,
       });
     } catch (err) {
       console.error("Error marking entry as paid:", err);

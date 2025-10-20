@@ -1,6 +1,10 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { formatDateForAPI, getTodayInUTC } from "@/lib/utils/date";
+import {
+  formatDateForAPI,
+  getTodayInUTC,
+  parseDateStringToUTC,
+} from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -9,6 +13,10 @@ export const runtime = 'nodejs';
 // Input validation schema
 const dailyBalanceSchema = z.object({
   balance: z.number().min(0, "Balance must be positive"),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in yyyy-MM-dd format")
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -22,14 +30,16 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validated = dailyBalanceSchema.parse(body);
 
-    const today = getTodayInUTC();
+    const targetDate = validated.date
+      ? parseDateStringToUTC(validated.date)
+      : getTodayInUTC();
 
     const dailyBalance = await prisma.daily_balances.upsert({
       where: {
         user_id_date: {
           // Using the unique constraint
           user_id: session.user.id,
-          date: today,
+          date: targetDate,
         },
       },
       update: {
@@ -39,7 +49,7 @@ export async function POST(req: Request) {
       create: {
         user_id: session.user.id,
         balance: validated.balance,
-        date: today,
+        date: targetDate,
       },
       include: {
         users: true, // Include user data if needed
@@ -73,7 +83,7 @@ export async function GET(req: Request) {
   try {
     if (dateParam) {
       // Query for specific date
-      const parsedDate = new Date(formatDateForAPI(dateParam));
+      const parsedDate = parseDateStringToUTC(formatDateForAPI(dateParam));
 
       const balance = await prisma.daily_balances.findUnique({
         where: {

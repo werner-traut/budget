@@ -1,6 +1,7 @@
 // src/app/api/budget-entries/route.ts
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { formatDateForAPI, parseDateStringToUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { CreateBudgetEntryDto } from "@/types/budget";
 
@@ -40,12 +41,16 @@ export async function POST(req: Request) {
   try {
     const body: CreateBudgetEntryDto = await req.json();
 
+    const normalizedDueDate = parseDateStringToUTC(
+      formatDateForAPI(body.due_date)
+    );
+
     const budgetItem = await prisma.budget_items.create({
       data: {
         user_id: session.user.id,
         name: body.name,
         amount: body.amount,
-        due_date: new Date(body.due_date),
+        due_date: normalizedDueDate,
       },
     });
 

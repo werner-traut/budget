@@ -1,6 +1,7 @@
 // src/api/budget-entries/[id]/route.ts
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { formatDateForAPI, parseDateStringToUTC } from "@/lib/utils/date";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = 'nodejs';
@@ -65,8 +66,14 @@ export async function PUT(req: NextRequest) {
       data: {
         name: body.name,
         amount: body.amount,
-        due_date: new Date(body.due_date),
-        updated_at: new Date().toISOString(),
+        ...(body.due_date
+          ? {
+              due_date: parseDateStringToUTC(
+                formatDateForAPI(body.due_date)
+              ),
+            }
+          : {}),
+        updated_at: new Date(),
       },
     });
 

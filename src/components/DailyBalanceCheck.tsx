@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { DailyBalanceModal } from "./DailyBalanceModal";
+import { getLocalDateString } from "@/lib/utils/date";
 
 interface DailyBalanceCheckProps {
   onDailyBalanceChange: (balance: number) => void;
@@ -40,7 +41,7 @@ export function DailyBalanceCheck({
           const response = await fetch("/api/daily-balance", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ balance }),
+            body: JSON.stringify({ balance, date: getLocalDateString() }),
           });
 
           if (!response.ok) throw new Error("Failed to save balance");

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateForDisplay } from "@/lib/utils/date";
 
 interface DailyBalanceModalProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export function DailyBalanceModal({
             </div>
             {error && <div className="text-sm text-red-600">{error}</div>}
             <div className="text-sm text-gray-500">
-              Last updated: {new Date().toLocaleDateString()}
+              Last updated: {formatDateForDisplay(new Date())}
             </div>
             <button
               type="submit"

@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { type PayPeriod, type PeriodType } from "@/types/periods";
 import PayPeriodForm from "./PayPeriodForm";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { calculateNextPayPeriod } from "@/lib/utils/pay-period";
 import { useBudgetStore } from "@/store/useBudgetStore";
 
 const PERIOD_TYPES: PeriodType[] = [
@@ -16,12 +17,12 @@ const PERIOD_TYPES: PeriodType[] = [
 ];
 
 export function PayPeriodManager() {
-  const { 
+  const {
     payPeriods,
     fetchPayPeriods,
-    setError 
+    setError
   } = useBudgetStore();
-  
+
   const [showForm, setShowForm] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PayPeriod | null>(null);
   const [isAddingNewPeriod, setIsAddingNewPeriod] = useState(false);
@@ -70,11 +71,48 @@ export function PayPeriodManager() {
     }
   };
 
-  const handleAddPeriod = () => {
-    setIsAddingNewPeriod(true);
-    setSelectedPeriod(null);
-    setSelectedPeriodType("FUTURE_PERIOD");
-    setShowForm(true);
+  const handleAddPeriod = async () => {
+    try {
+      setIsAddingNewPeriod(true);
+
+      // Find the latest period to base calculations on
+      const latestPeriod =
+        payPeriods.find(p => p.period_type === "FUTURE_PERIOD") ||
+        payPeriods.find(p => p.period_type === "PERIOD_AFTER") ||
+        payPeriods.find(p => p.period_type === "NEXT_PERIOD") ||
+        payPeriods.find(p => p.period_type === "CURRENT_PERIOD");
+
+      let newStartDate = new Date();
+      let newSalary = 0;
+
+      if (latestPeriod) {
+        newStartDate = calculateNextPayPeriod(latestPeriod.start_date);
+        newSalary = latestPeriod.salary_amount;
+      }
+
+      // Shift periods before adding a new one
+      await shiftPeriods();
+
+      // Create new FUTURE_PERIOD
+      const response = await fetch("/api/pay-periods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          period_type: "FUTURE_PERIOD",
+          start_date: formatDateForDisplay(newStartDate),
+          salary_amount: newSalary,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create period");
+
+      await fetchPayPeriods();
+    } catch (error) {
+      console.error("Error adding period:", error);
+      setError(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsAddingNewPeriod(false);
+    }
   };
 
   const handleSubmit = async (period: Partial<PayPeriod>) => {
@@ -83,7 +121,7 @@ export function PayPeriodManager() {
         // Shift periods before adding a new one
         await shiftPeriods();
       }
-      
+
       if (period.id) {
         // Handling update of existing period
         const response = await fetch(`/api/pay-periods/${period.id}`, {
@@ -101,7 +139,7 @@ export function PayPeriodManager() {
         });
         if (!response.ok) throw new Error("Failed to create period");
       }
-      
+
       await fetchPayPeriods();
       setShowForm(false);
     } catch (error) {

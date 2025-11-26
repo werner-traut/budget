@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateForDisplay } from "@/lib/utils/date";
@@ -21,11 +22,20 @@ export function DailyBalanceModal({
   const [balance, setBalance] = useState(currentBalance?.toString() || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
   const balanceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
     if (isOpen && balanceInputRef.current) {
-      balanceInputRef.current.focus();
+      // Small timeout to ensure the modal is rendered before focusing
+      setTimeout(() => {
+        balanceInputRef.current?.focus();
+      }, 0);
     }
   }, [isOpen]);
 
@@ -45,9 +55,9 @@ export function DailyBalanceModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="relative">
@@ -92,6 +102,7 @@ export function DailyBalanceModal({
           </form>
         </CardContent>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }

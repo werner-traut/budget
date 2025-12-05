@@ -100,13 +100,40 @@ function BalanceGraph() {
     );
   }
 
-  const data = history.map((entry) => ({
+  const data: DataPoint[] = history.map((entry) => ({
     date: formatDateForDisplay(entry.balance_date),
-    "Bank Balance": entry.bank_balance,
-    "Current Period End Balance": entry.current_period_end_balance,
-    "Next Period End Balance": entry.next_period_end_balance,
-    "Period After End Balance": entry.period_after_end_balance,
+    "Bank Balance": Number(entry.bank_balance),
+    "Current Period End Balance": Number(entry.current_period_end_balance),
+    "Next Period End Balance": Number(entry.next_period_end_balance),
+    "Period After End Balance": Number(entry.period_after_end_balance),
   }));
+
+  // Calculate linear regression trend line for Bank Balance
+  const n = data.length;
+  if (n > 1) {
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumXX = 0;
+
+    // Use index as X coordinate (0, 1, 2, ...) to simplify calculation and avoid date parsing issues
+    for (let i = 0; i < n; i++) {
+      const x = i;
+      const y = data[i]["Bank Balance"];
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumXX += x * x;
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Add trend line values to data
+    for (let i = 0; i < n; i++) {
+      data[i]["Trend"] = slope * i + intercept;
+    }
+  }
 
   // Calculate domain for YAxis to add some padding
   const allValues = data.flatMap((entry) => [
@@ -114,6 +141,7 @@ function BalanceGraph() {
     entry["Current Period End Balance"],
     entry["Next Period End Balance"],
     entry["Period After End Balance"],
+    (entry["Trend"] as number) || entry["Bank Balance"],
   ]);
   const minValue = Math.min(...allValues);
   const maxValue = Math.max(...allValues);
@@ -126,7 +154,7 @@ function BalanceGraph() {
           <p className="font-bold">{label}</p>
           {payload.map((entry: CustomTooltipPayloadItem) => (
             <p key={entry.name} style={{ color: entry.color }}>
-              {entry.name}: ${entry.value.toLocaleString()}
+              {entry.name}: ${entry.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
           ))}
         </div>
@@ -147,6 +175,7 @@ function BalanceGraph() {
             <SelectItem value="30">30 Days</SelectItem>
             <SelectItem value="60">60 Days</SelectItem>
             <SelectItem value="90">90 Days</SelectItem>
+            <SelectItem value="120">120 Days</SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>
@@ -192,6 +221,16 @@ function BalanceGraph() {
                 dot={false}
                 strokeWidth={2}
                 activeDot={{ r: 6 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Trend"
+                stroke="#94a3b8"
+                strokeDasharray="5 5"
+                dot={false}
+                strokeWidth={2}
+                activeDot={false}
+                name="Trend (Bank Balance)"
               />
               <Line
                 type="monotone"

@@ -14,15 +14,25 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const duration = url.searchParams.get("days") || "30";
+  const startDate = url.searchParams.get("startDate");
 
   try {
+    const whereCondition: any = {
+      user_id: session.user.id,
+    };
+
+    if (startDate) {
+      whereCondition.balance_date = {
+        gte: new Date(startDate),
+      };
+    } else {
+      whereCondition.balance_date = {
+        gte: new Date(Date.now() - parseInt(duration) * 24 * 60 * 60 * 1000),
+      };
+    }
+
     const balanceHistory = await prisma.balance_history.findMany({
-      where: {
-        user_id: session.user.id,
-        balance_date: {
-          gte: new Date(Date.now() - parseInt(duration) * 24 * 60 * 60 * 1000)
-        }
-      },
+      where: whereCondition,
       orderBy: {
         balance_date: "asc",
       },

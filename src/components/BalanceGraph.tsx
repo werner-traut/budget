@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -56,15 +57,24 @@ interface CustomTooltipProps
 
 function BalanceGraph() {
   const [duration, setDuration] = useState("30");
+  const [customDate, setCustomDate] = useState("");
   const [history, setHistory] = useState<BalanceHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBalanceHistory = async (duration: string) => {
+  const fetchBalanceHistory = async (duration: string, startDate?: string) => {
     try {
+      if (duration === "custom" && !startDate) return;
+
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`/api/balance-history?days=${duration}`);
+
+      let url = `/api/balance-history?days=${duration}`;
+      if (duration === "custom" && startDate) {
+        url = `/api/balance-history?startDate=${startDate}`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch balance history');
       const data = await response.json();
       setHistory(data);
@@ -77,8 +87,8 @@ function BalanceGraph() {
   };
 
   useEffect(() => {
-    fetchBalanceHistory(duration);
-  }, [duration]);
+    fetchBalanceHistory(duration, customDate);
+  }, [duration, customDate]);
 
   if (isLoading) {
     return (
@@ -167,17 +177,28 @@ function BalanceGraph() {
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Balance History</CardTitle>
-        <Select value={duration} onValueChange={setDuration}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Select duration" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="30">30 Days</SelectItem>
-            <SelectItem value="60">60 Days</SelectItem>
-            <SelectItem value="90">90 Days</SelectItem>
-            <SelectItem value="120">120 Days</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          {duration === "custom" && (
+            <Input
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="w-auto"
+            />
+          )}
+          <Select value={duration} onValueChange={setDuration}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Select duration" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30">30 Days</SelectItem>
+              <SelectItem value="60">60 Days</SelectItem>
+              <SelectItem value="90">90 Days</SelectItem>
+              <SelectItem value="120">120 Days</SelectItem>
+              <SelectItem value="custom">Custom Date</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="h-[600px] w-full">

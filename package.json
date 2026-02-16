@@ -9,11 +9,13 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "generate": "prisma generate"
+    "generate": "prisma generate",
+    "release": "release-it"
   },
   "dependencies": {
     "@auth/core": "^0.37.3",
-    "@prisma/client": "^6.19.1",
+    "@prisma/adapter-pg": "^7.4.0",
+    "@prisma/client": "^7.4.0",
     "@prisma/extension-accelerate": "^3.0.1",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
@@ -27,6 +29,7 @@
     "lucide-react": "^0.564.0",
     "next": "^16.1.6",
     "next-auth": "^5.0.0-beta.29",
+    "pg": "^8.18.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-is": "19.2.4",
@@ -39,6 +42,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^22",
+    "@types/pg": "^8.16.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "baseline-browser-mapping": "^2.9.19",
@@ -48,7 +52,8 @@
     "eslint": "^9",
     "eslint-config-next": "^16.0.10",
     "postcss": "^8.5.6",
-    "prisma": "^6.19.1",
+    "prisma": "^7.4.0",
+    "release-it": "^19.2.4",
     "tailwindcss": "^4.1.14",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

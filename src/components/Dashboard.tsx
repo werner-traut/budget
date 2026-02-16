@@ -77,7 +77,9 @@ export function Dashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-sm text-muted-foreground">Welcome back</div>
+            <div className="text-sm text-muted-foreground">
+              v{process.env.NEXT_PUBLIC_APP_VERSION} • Welcome back
+            </div>
             <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-800 border-2 border-white dark:border-gray-700 shadow-sm"></div>
           </div>
         </div>

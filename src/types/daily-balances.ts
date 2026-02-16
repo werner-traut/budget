@@ -1,9 +1,9 @@
-import { Decimal } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 export interface DailyBalanceResponse {
   id: string;
   user_id: string;
-  balance: Decimal;
+  balance: Prisma.Decimal;
   date: Date;
   created_at: Date;
   updated_at: Date;

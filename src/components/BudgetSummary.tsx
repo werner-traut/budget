@@ -32,6 +32,30 @@ export function BudgetSummary() {
   const [isEditingAdhoc, setIsEditingAdhoc] = useState(false);
   const [newDailyAmount, setNewDailyAmount] = useState("");
 
+  const monthlyOverview = useMemo(() => {
+    const today = getTodayInUTC();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
+    const totalExpenses = entries.reduce((sum, entry) => sum + entry.amount, 0);
+
+    const totalIncome = payPeriods
+      .filter((period) => {
+        const startDate = new Date(period.start_date);
+        return (
+          startDate.getFullYear() === currentYear &&
+          startDate.getMonth() === currentMonth
+        );
+      })
+      .reduce((sum, period) => sum + period.salary_amount, 0);
+
+    return {
+      totalExpenses,
+      totalIncome,
+      difference: totalIncome - totalExpenses,
+    };
+  }, [entries, payPeriods]);
+
   const periods = useMemo(() => {
     if (!payPeriods.length) return {};
 
@@ -193,6 +217,41 @@ export function BudgetSummary() {
               ${Number(adhocSettings.daily_amount).toFixed(2)}/day
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Monthly Overview */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Monthly Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-sm text-gray-500 mb-1">Total Expenses</div>
+              <div className="text-2xl font-bold">
+                ${monthlyOverview.totalExpenses.toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500 mb-1">Income This Month</div>
+              <div className="text-2xl font-bold">
+                ${monthlyOverview.totalIncome.toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500 mb-1">Difference</div>
+              <div
+                className={`text-2xl font-bold ${
+                  monthlyOverview.difference >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                ${monthlyOverview.difference.toFixed(2)}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

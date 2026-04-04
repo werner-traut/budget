@@ -49,12 +49,16 @@ export function BudgetSummary() {
       })
       .reduce((sum, period) => sum + period.salary_amount, 0);
 
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const totalAdhoc = daysInMonth * adhocSettings.daily_amount;
+
     return {
       totalExpenses,
       totalIncome,
-      difference: totalIncome - totalExpenses,
+      totalAdhoc,
+      difference: totalIncome - totalExpenses - totalAdhoc,
     };
-  }, [entries, payPeriods]);
+  }, [entries, payPeriods, adhocSettings.daily_amount]);
 
   const periods = useMemo(() => {
     if (!payPeriods.length) return {};
@@ -226,11 +230,17 @@ export function BudgetSummary() {
           <CardTitle className="text-lg">Monthly Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className="text-sm text-gray-500 mb-1">Total Expenses</div>
               <div className="text-2xl font-bold">
                 ${monthlyOverview.totalExpenses.toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500 mb-1">Total Adhoc</div>
+              <div className="text-2xl font-bold">
+                ${monthlyOverview.totalAdhoc.toFixed(2)}
               </div>
             </div>
             <div>

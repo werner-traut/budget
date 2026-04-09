@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
+import type { BalanceHistory } from "@/types/balanceHistory";
 
 interface PeriodSummary {
   entries: BudgetEntry[];
@@ -31,6 +32,60 @@ export function BudgetSummary() {
   
   const [isEditingAdhoc, setIsEditingAdhoc] = useState(false);
   const [newDailyAmount, setNewDailyAmount] = useState("");
+  const [monthlyHistory, setMonthlyHistory] = useState<BalanceHistory[]>([]);
+
+  useEffect(() => {
+    const today = getTodayInUTC();
+    const startOfMonth = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+    const startDateStr = startOfMonth.toISOString().split("T")[0];
+    fetch(`/api/balance-history?startDate=${startDateStr}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setMonthlyHistory)
+      .catch(() => {});
+  }, []);
+
+  const monthlySavings = useMemo(() => {
+    if (monthlyHistory.length < 2) return null;
+
+    let cumulative = 0;
+    let trackedDays = 0;
+
+    for (let i = 1; i < monthlyHistory.length; i++) {
+      const prev = monthlyHistory[i - 1];
+      const curr = monthlyHistory[i];
+
+      const prevDate = new Date(prev.balance_date);
+      const currDate = new Date(curr.balance_date);
+      const daysGap = Math.round(
+        (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      const salaryReceived = payPeriods
+        .filter((p) => {
+          const d = new Date(p.start_date);
+          return d > prevDate && d <= currDate;
+        })
+        .reduce((sum, p) => sum + p.salary_amount, 0);
+
+      const expensesDue = entries
+        .filter((e) => {
+          const d = new Date(e.due_date);
+          return d > prevDate && d <= currDate;
+        })
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      const expected =
+        Number(prev.bank_balance) +
+        salaryReceived -
+        expensesDue -
+        daysGap * adhocSettings.daily_amount;
+
+      cumulative += Number(curr.bank_balance) - expected;
+      trackedDays += daysGap;
+    }
+
+    return { cumulative, trackedDays };
+  }, [monthlyHistory, entries, payPeriods, adhocSettings.daily_amount]);
 
   const monthlyOverview = useMemo(() => {
     const today = getTodayInUTC();
@@ -262,6 +317,37 @@ export function BudgetSummary() {
               </div>
             </div>
           </div>
+
+          {monthlySavings !== null && (
+            <div className="mt-5 pt-5 border-t flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-700">
+                  Month-to-date adhoc savings
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  actual spend vs expected over {monthlySavings.trackedDays} tracked day
+                  {monthlySavings.trackedDays !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <div className="text-right">
+                <div
+                  className={`text-2xl font-bold ${
+                    monthlySavings.cumulative >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {monthlySavings.cumulative >= 0 ? "+" : ""}
+                  ${Math.abs(monthlySavings.cumulative).toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {monthlySavings.cumulative >= 0
+                    ? "under budget"
+                    : "over budget"}
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

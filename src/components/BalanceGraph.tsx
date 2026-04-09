@@ -20,12 +20,14 @@ import {
   Legend,
   ResponsiveContainer,
   TooltipProps,
+  ReferenceLine,
 } from "recharts";
 import {
   NameType,
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BalanceHistory } from '@/types/balanceHistory';
 
 // Define the shape of our data point
@@ -35,6 +37,7 @@ interface DataPoint {
   "Current Period End Balance": number;
   "Next Period End Balance": number;
   "Period After End Balance": number;
+  "Adhoc Savings": number;
   [key: string]: string | number; // Allow for dynamic key access
 }
 
@@ -61,6 +64,7 @@ function BalanceGraph() {
   const [history, setHistory] = useState<BalanceHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { entries, payPeriods, adhocSettings } = useBudgetStore();
 
   const fetchBalanceHistory = async (duration: string, startDate?: string) => {
     try {
@@ -110,13 +114,50 @@ function BalanceGraph() {
     );
   }
 
-  const data: DataPoint[] = history.map((entry) => ({
-    date: formatDateForDisplay(entry.balance_date),
-    "Bank Balance": Number(entry.bank_balance),
-    "Current Period End Balance": Number(entry.current_period_end_balance),
-    "Next Period End Balance": Number(entry.next_period_end_balance),
-    "Period After End Balance": Number(entry.period_after_end_balance),
-  }));
+  const data: DataPoint[] = (() => {
+    let cumulativeSavings = 0;
+    return history.map((entry, i) => {
+      if (i > 0) {
+        const prev = history[i - 1];
+        const prevDate = new Date(prev.balance_date);
+        const currDate = new Date(entry.balance_date);
+        const daysGap = Math.round(
+          (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        const salaryReceived = payPeriods
+          .filter((p) => {
+            const d = new Date(p.start_date);
+            return d > prevDate && d <= currDate;
+          })
+          .reduce((sum, p) => sum + p.salary_amount, 0);
+
+        const expensesDue = entries
+          .filter((e) => {
+            const d = new Date(e.due_date);
+            return d > prevDate && d <= currDate;
+          })
+          .reduce((sum, e) => sum + e.amount, 0);
+
+        const expected =
+          Number(prev.bank_balance) +
+          salaryReceived -
+          expensesDue -
+          daysGap * adhocSettings.daily_amount;
+
+        cumulativeSavings += Number(entry.bank_balance) - expected;
+      }
+
+      return {
+        date: formatDateForDisplay(entry.balance_date),
+        "Bank Balance": Number(entry.bank_balance),
+        "Current Period End Balance": Number(entry.current_period_end_balance),
+        "Next Period End Balance": Number(entry.next_period_end_balance),
+        "Period After End Balance": Number(entry.period_after_end_balance),
+        "Adhoc Savings": Math.round(cumulativeSavings * 100) / 100,
+      };
+    });
+  })();
 
   // Calculate linear regression trend line for Bank Balance
   const n = data.length;
@@ -222,10 +263,18 @@ function BalanceGraph() {
                 tickMargin={20}
               />
               <YAxis
+                yAxisId="balance"
                 domain={[minValue - padding, maxValue + padding]}
                 tickFormatter={(value) => `$${value.toLocaleString()}`}
                 tick={{ fill: "#666", fontSize: 12 }}
                 width={80}
+              />
+              <YAxis
+                yAxisId="savings"
+                orientation="right"
+                tickFormatter={(value) => `$${value.toLocaleString()}`}
+                tick={{ fill: "#f59e0b", fontSize: 11 }}
+                width={70}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend
@@ -236,6 +285,7 @@ function BalanceGraph() {
                 }}
               />
               <Line
+                yAxisId="balance"
                 type="monotone"
                 dataKey="Bank Balance"
                 stroke="#6366f1"
@@ -244,6 +294,7 @@ function BalanceGraph() {
                 activeDot={{ r: 6 }}
               />
               <Line
+                yAxisId="balance"
                 type="monotone"
                 dataKey="Trend"
                 stroke="#94a3b8"
@@ -254,6 +305,7 @@ function BalanceGraph() {
                 name="Trend (Bank Balance)"
               />
               <Line
+                yAxisId="balance"
                 type="monotone"
                 dataKey="Current Period End Balance"
                 stroke="#22c55e"
@@ -262,6 +314,7 @@ function BalanceGraph() {
                 activeDot={{ r: 6 }}
               />
               <Line
+                yAxisId="balance"
                 type="monotone"
                 dataKey="Next Period End Balance"
                 stroke="#eab308"
@@ -270,11 +323,28 @@ function BalanceGraph() {
                 activeDot={{ r: 6 }}
               />
               <Line
+                yAxisId="balance"
                 type="monotone"
                 dataKey="Period After End Balance"
                 stroke="#ef4444"
                 dot={false}
                 strokeWidth={2}
+                activeDot={{ r: 6 }}
+              />
+              <ReferenceLine
+                yAxisId="savings"
+                y={0}
+                stroke="#f59e0b"
+                strokeDasharray="4 4"
+                strokeOpacity={0.5}
+              />
+              <Line
+                yAxisId="savings"
+                type="monotone"
+                dataKey="Adhoc Savings"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#f59e0b" }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>

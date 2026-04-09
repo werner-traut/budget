@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import {
   LineChart,
+  AreaChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -214,6 +216,23 @@ function BalanceGraph() {
     return null;
   };
 
+  // Gradient for savings chart: green above 0, red below
+  const savingsValues = data.map((d) => d["Adhoc Savings"]);
+  const savingsMin = Math.min(...savingsValues);
+  const savingsMax = Math.max(...savingsValues);
+  const savingsPad = Math.max(Math.abs(savingsMax), Math.abs(savingsMin), 1) * 0.15;
+  const savingsDomainMin = savingsMin - savingsPad;
+  const savingsDomainMax = savingsMax + savingsPad;
+  const zeroOffset =
+    savingsDomainMax <= 0
+      ? 0
+      : savingsDomainMin >= 0
+      ? 1
+      : savingsDomainMax / (savingsDomainMax - savingsDomainMin);
+
+  const chartMargin = { top: 20, right: 30, left: 60, bottom: 60 };
+  const savingsMargin = { top: 10, right: 30, left: 60, bottom: 0 };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -241,18 +260,11 @@ function BalanceGraph() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-[600px] w-full">
+      <CardContent className="space-y-2">
+        {/* Balance chart */}
+        <div className="h-[440px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={data}
-              margin={{
-                top: 20,
-                right: 30,
-                left: 60,
-                bottom: 60,
-              }}
-            >
+            <LineChart data={data} margin={chartMargin}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               <XAxis
                 dataKey="date"
@@ -263,29 +275,18 @@ function BalanceGraph() {
                 tickMargin={20}
               />
               <YAxis
-                yAxisId="balance"
                 domain={[minValue - padding, maxValue + padding]}
                 tickFormatter={(value) => `$${value.toLocaleString()}`}
                 tick={{ fill: "#666", fontSize: 12 }}
                 width={80}
               />
-              <YAxis
-                yAxisId="savings"
-                orientation="right"
-                tickFormatter={(value) => `$${value.toLocaleString()}`}
-                tick={{ fill: "#f59e0b", fontSize: 11 }}
-                width={70}
-              />
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 verticalAlign="top"
                 height={36}
-                wrapperStyle={{
-                  paddingTop: "20px",
-                }}
+                wrapperStyle={{ paddingTop: "20px" }}
               />
               <Line
-                yAxisId="balance"
                 type="monotone"
                 dataKey="Bank Balance"
                 stroke="#6366f1"
@@ -294,7 +295,6 @@ function BalanceGraph() {
                 activeDot={{ r: 6 }}
               />
               <Line
-                yAxisId="balance"
                 type="monotone"
                 dataKey="Trend"
                 stroke="#94a3b8"
@@ -305,7 +305,6 @@ function BalanceGraph() {
                 name="Trend (Bank Balance)"
               />
               <Line
-                yAxisId="balance"
                 type="monotone"
                 dataKey="Current Period End Balance"
                 stroke="#22c55e"
@@ -314,7 +313,6 @@ function BalanceGraph() {
                 activeDot={{ r: 6 }}
               />
               <Line
-                yAxisId="balance"
                 type="monotone"
                 dataKey="Next Period End Balance"
                 stroke="#eab308"
@@ -323,7 +321,6 @@ function BalanceGraph() {
                 activeDot={{ r: 6 }}
               />
               <Line
-                yAxisId="balance"
                 type="monotone"
                 dataKey="Period After End Balance"
                 stroke="#ef4444"
@@ -331,24 +328,69 @@ function BalanceGraph() {
                 strokeWidth={2}
                 activeDot={{ r: 6 }}
               />
-              <ReferenceLine
-                yAxisId="savings"
-                y={0}
-                stroke="#f59e0b"
-                strokeDasharray="4 4"
-                strokeOpacity={0.5}
-              />
-              <Line
-                yAxisId="savings"
-                type="monotone"
-                dataKey="Adhoc Savings"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#f59e0b" }}
-                activeDot={{ r: 6 }}
-              />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+
+        {/* Adhoc savings chart */}
+        <div className="border-t pt-2">
+          <p className="text-xs font-medium text-gray-500 pl-[72px] mb-1">
+            Cumulative Adhoc Savings
+            <span className="ml-2 text-gray-400 font-normal">
+              (above 0 = under budget · below 0 = over budget)
+            </span>
+          </p>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={savingsMargin}>
+                <defs>
+                  <linearGradient
+                    id="savingsGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset={`${zeroOffset * 100}%`}
+                      stopColor="#22c55e"
+                      stopOpacity={0.25}
+                    />
+                    <stop
+                      offset={`${zeroOffset * 100}%`}
+                      stopColor="#ef4444"
+                      stopOpacity={0.25}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis dataKey="date" hide />
+                <YAxis
+                  domain={[savingsDomainMin, savingsDomainMax]}
+                  tickFormatter={(value) => `$${value.toLocaleString()}`}
+                  tick={{ fill: "#666", fontSize: 11 }}
+                  width={80}
+                />
+                <Tooltip
+                  formatter={(value: number | undefined) => [
+                    `$${Number(value ?? 0).toFixed(2)}`,
+                    "Adhoc Savings",
+                  ]}
+                  labelFormatter={() => ""}
+                />
+                <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} />
+                <Area
+                  type="monotone"
+                  dataKey="Adhoc Savings"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  fill="url(#savingsGradient)"
+                  dot={{ r: 3, fill: "#f59e0b", strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </CardContent>
     </Card>

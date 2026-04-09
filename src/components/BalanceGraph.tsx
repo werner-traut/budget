@@ -261,8 +261,10 @@ function BalanceGraph() {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        {/* Balance chart */}
-        <div className="h-[440px] w-full">
+        {/* calc: 100vh minus header(64) nav+margin(80) main-padding(64) card-header(84) card-content-padding(24) outer-padding(48) */}
+        <div style={{ height: 'calc(100vh - 364px)', minHeight: '420px' }} className="flex flex-col gap-2">
+        {/* Balance chart — takes all remaining space */}
+        <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={chartMargin}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -391,6 +393,7 @@ function BalanceGraph() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+        </div>
         </div>
       </CardContent>
     </Card>

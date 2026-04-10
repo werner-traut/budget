@@ -60,13 +60,35 @@ interface CustomTooltipProps
   label?: string;
 }
 
+const LINE_CONFIG = [
+  { key: "Bank Balance",               color: "#6366f1" },
+  { key: "Trend",                      color: "#94a3b8", label: "Trend (Bank Balance)" },
+  { key: "Current Period End Balance", color: "#22c55e" },
+  { key: "Next Period End Balance",    color: "#eab308" },
+  { key: "Period After End Balance",   color: "#ef4444" },
+  { key: "Adhoc Savings",              color: "#f59e0b" },
+] as const;
+
+type LineKey = (typeof LINE_CONFIG)[number]["key"];
+
 function BalanceGraph() {
   const [duration, setDuration] = useState("30");
   const [customDate, setCustomDate] = useState("");
   const [history, setHistory] = useState<BalanceHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visibleLines, setVisibleLines] = useState<Record<LineKey, boolean>>({
+    "Bank Balance": true,
+    "Trend": true,
+    "Current Period End Balance": true,
+    "Next Period End Balance": true,
+    "Period After End Balance": true,
+    "Adhoc Savings": true,
+  });
   const { entries, payPeriods, adhocSettings } = useBudgetStore();
+
+  const toggleLine = (key: LineKey) =>
+    setVisibleLines((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const fetchBalanceHistory = async (duration: string, startDate?: string) => {
     try {
@@ -261,6 +283,33 @@ function BalanceGraph() {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
+        {/* Line visibility toggles */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 pb-1">
+          {LINE_CONFIG.map((cfg) => (
+            <label key={cfg.key} className="flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={visibleLines[cfg.key]}
+                onChange={() => toggleLine(cfg.key)}
+                className="sr-only"
+              />
+              <span
+                className="inline-flex items-center justify-center w-4 h-4 rounded border"
+                style={{
+                  backgroundColor: visibleLines[cfg.key] ? cfg.color : "transparent",
+                  borderColor: cfg.color,
+                }}
+              >
+                {visibleLines[cfg.key] && (
+                  <svg viewBox="0 0 10 8" className="w-2.5 h-2.5 fill-white" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </span>
+              {"label" in cfg ? cfg.label : cfg.key}
+            </label>
+          ))}
+        </div>
         {/* calc: 100vh minus header(64) nav+margin(80) main-padding(64) card-header(84) card-content-padding(24) outer-padding(48) */}
         <div style={{ height: 'calc(100vh - 364px)', minHeight: '420px' }} className="flex flex-col gap-2">
         {/* Balance chart — takes all remaining space */}
@@ -288,54 +337,64 @@ function BalanceGraph() {
                 height={36}
                 wrapperStyle={{ paddingTop: "20px" }}
               />
-              <Line
-                type="monotone"
-                dataKey="Bank Balance"
-                stroke="#6366f1"
-                dot={false}
-                strokeWidth={2}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="Trend"
-                stroke="#94a3b8"
-                strokeDasharray="5 5"
-                dot={false}
-                strokeWidth={2}
-                activeDot={false}
-                name="Trend (Bank Balance)"
-              />
-              <Line
-                type="monotone"
-                dataKey="Current Period End Balance"
-                stroke="#22c55e"
-                dot={false}
-                strokeWidth={2}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="Next Period End Balance"
-                stroke="#eab308"
-                dot={false}
-                strokeWidth={2}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="Period After End Balance"
-                stroke="#ef4444"
-                dot={false}
-                strokeWidth={2}
-                activeDot={{ r: 6 }}
-              />
+              {visibleLines["Bank Balance"] && (
+                <Line
+                  type="monotone"
+                  dataKey="Bank Balance"
+                  stroke="#6366f1"
+                  dot={false}
+                  strokeWidth={2}
+                  activeDot={{ r: 6 }}
+                />
+              )}
+              {visibleLines["Trend"] && (
+                <Line
+                  type="monotone"
+                  dataKey="Trend"
+                  stroke="#94a3b8"
+                  strokeDasharray="5 5"
+                  dot={false}
+                  strokeWidth={2}
+                  activeDot={false}
+                  name="Trend (Bank Balance)"
+                />
+              )}
+              {visibleLines["Current Period End Balance"] && (
+                <Line
+                  type="monotone"
+                  dataKey="Current Period End Balance"
+                  stroke="#22c55e"
+                  dot={false}
+                  strokeWidth={2}
+                  activeDot={{ r: 6 }}
+                />
+              )}
+              {visibleLines["Next Period End Balance"] && (
+                <Line
+                  type="monotone"
+                  dataKey="Next Period End Balance"
+                  stroke="#eab308"
+                  dot={false}
+                  strokeWidth={2}
+                  activeDot={{ r: 6 }}
+                />
+              )}
+              {visibleLines["Period After End Balance"] && (
+                <Line
+                  type="monotone"
+                  dataKey="Period After End Balance"
+                  stroke="#ef4444"
+                  dot={false}
+                  strokeWidth={2}
+                  activeDot={{ r: 6 }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Adhoc savings chart */}
-        <div className="border-t pt-2">
+        {visibleLines["Adhoc Savings"] && <div className="border-t pt-2">
           <p className="text-xs font-medium text-gray-500 pl-[72px] mb-1">
             Cumulative Adhoc Savings
             <span className="ml-2 text-gray-400 font-normal">
@@ -393,7 +452,7 @@ function BalanceGraph() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </div>}
         </div>
       </CardContent>
     </Card>

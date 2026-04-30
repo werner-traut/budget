@@ -8,6 +8,7 @@ import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
 import type { BalanceHistory } from "@/types/balanceHistory";
+import type { PayPeriod } from "@/types/periods";
 
 interface PeriodSummary {
   entries: BudgetEntry[];
@@ -33,16 +34,54 @@ export function BudgetSummary() {
   const [isEditingAdhoc, setIsEditingAdhoc] = useState(false);
   const [newDailyAmount, setNewDailyAmount] = useState("");
   const [monthlyHistory, setMonthlyHistory] = useState<BalanceHistory[]>([]);
+  const [monthlyPayPeriods, setMonthlyPayPeriods] = useState<
+    PayPeriod[] | null
+  >(null);
 
   useEffect(() => {
     const today = getTodayInUTC();
-    const startOfMonth = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+    const startOfMonth = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)
+    );
     const startDateStr = startOfMonth.toISOString().split("T")[0];
     fetch(`/api/balance-history?startDate=${startDateStr}`)
       .then((r) => r.ok ? r.json() : [])
       .then(setMonthlyHistory)
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const today = getTodayInUTC();
+    const currentYear = today.getUTCFullYear();
+    const currentMonth = today.getUTCMonth();
+    const startOfMonth = new Date(Date.UTC(currentYear, currentMonth, 1));
+    const startOfNextMonth = new Date(
+      Date.UTC(currentYear, currentMonth + 1, 1)
+    );
+    const startDateStr = startOfMonth.toISOString().split("T")[0];
+    const endDateStr = startOfNextMonth.toISOString().split("T")[0];
+
+    fetch(
+      `/api/pay-periods?includeClosed=true&startDate=${startDateStr}&endDate=${endDateStr}`
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch monthly pay periods");
+        return r.json();
+      })
+      .then((data: PayPeriod[]) =>
+        setMonthlyPayPeriods(
+          data.map((period) => ({
+            ...period,
+            salary_amount: Number(period.salary_amount),
+          }))
+        )
+      )
+      .catch(() => {
+        setMonthlyPayPeriods(null);
+      });
+  }, [payPeriods]);
+
+  const incomePayPeriods = monthlyPayPeriods ?? payPeriods;
 
   const monthlySavings = useMemo(() => {
     if (monthlyHistory.length < 2) return null;
@@ -60,7 +99,7 @@ export function BudgetSummary() {
         (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      const salaryReceived = payPeriods
+      const salaryReceived = incomePayPeriods
         .filter((p) => {
           const d = new Date(p.start_date);
           return d > prevDate && d <= currDate;
@@ -85,26 +124,28 @@ export function BudgetSummary() {
     }
 
     return { cumulative, trackedDays };
-  }, [monthlyHistory, entries, payPeriods, adhocSettings.daily_amount]);
+  }, [monthlyHistory, entries, incomePayPeriods, adhocSettings.daily_amount]);
 
   const monthlyOverview = useMemo(() => {
     const today = getTodayInUTC();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
+    const currentYear = today.getUTCFullYear();
+    const currentMonth = today.getUTCMonth();
 
     const totalExpenses = entries.reduce((sum, entry) => sum + entry.amount, 0);
 
-    const totalIncome = payPeriods
+    const totalIncome = incomePayPeriods
       .filter((period) => {
         const startDate = new Date(period.start_date);
         return (
-          startDate.getFullYear() === currentYear &&
-          startDate.getMonth() === currentMonth
+          startDate.getUTCFullYear() === currentYear &&
+          startDate.getUTCMonth() === currentMonth
         );
       })
       .reduce((sum, period) => sum + period.salary_amount, 0);
 
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysInMonth = new Date(
+      Date.UTC(currentYear, currentMonth + 1, 0)
+    ).getUTCDate();
     const totalAdhoc = daysInMonth * adhocSettings.daily_amount;
 
     return {
@@ -113,7 +154,7 @@ export function BudgetSummary() {
       totalAdhoc,
       difference: totalIncome - totalExpenses - totalAdhoc,
     };
-  }, [entries, payPeriods, adhocSettings.daily_amount]);
+  }, [entries, incomePayPeriods, adhocSettings.daily_amount]);
 
   const periods = useMemo(() => {
     if (!payPeriods.length) return {};

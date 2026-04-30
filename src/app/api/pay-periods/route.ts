@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { parseDateStringToUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -66,21 +67,43 @@ async function validatePeriodOrder(
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
 
   if (!session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
+  const url = new URL(req.url);
+  const includeClosed = url.searchParams.get("includeClosed") === "true";
+  const startDate = url.searchParams.get("startDate");
+  const endDate = url.searchParams.get("endDate");
+
   try {
+    const whereCondition: any = {
+      user_id: session.user.id,
+    };
+
+    if (!includeClosed) {
+      whereCondition.period_type = {
+        not: "CLOSED_PERIOD",
+      };
+    }
+
+    if (startDate || endDate) {
+      whereCondition.start_date = {};
+
+      if (startDate) {
+        whereCondition.start_date.gte = parseDateStringToUTC(startDate);
+      }
+
+      if (endDate) {
+        whereCondition.start_date.lt = parseDateStringToUTC(endDate);
+      }
+    }
+
     const payPeriods = await prisma.pay_periods.findMany({
-      where: {
-        user_id: session.user.id,
-        period_type: {
-          not: "CLOSED_PERIOD",
-        },
-      },
+      where: whereCondition,
       orderBy: {
         start_date: "desc",
       },

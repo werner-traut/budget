@@ -28,9 +28,14 @@ import {
   NameType,
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
-import { formatDateForDisplay } from "@/lib/utils/date";
+import { formatDateForAPI, formatDateForDisplay } from "@/lib/utils/date";
+import {
+  calculateAdhocSavingsTimeline,
+  createAdhocSavingsConsoleLogger,
+} from "@/lib/utils/budget-calculations";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BalanceHistory } from '@/types/balanceHistory';
+import type { PayPeriod } from "@/types/periods";
 
 // Define the shape of our data point
 interface DataPoint {
@@ -71,10 +76,33 @@ const LINE_CONFIG = [
 
 type LineKey = (typeof LINE_CONFIG)[number]["key"];
 
+const graphSavingsLogger =
+  process.env.NEXT_PUBLIC_LOG_BUDGET_CALCULATIONS === "true"
+    ? createAdhocSavingsConsoleLogger("graph-adhoc-savings")
+    : undefined;
+
+function addUtcDays(date: string | Date, days: number): string {
+  const dateObj = new Date(date);
+  dateObj.setUTCDate(dateObj.getUTCDate() + days);
+  return formatDateForAPI(dateObj);
+}
+
+function getFallbackStartDate(duration: string, startDate?: string): string {
+  if (duration === "custom" && startDate) return startDate;
+
+  const days = Number(duration);
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - (Number.isFinite(days) ? days : 30));
+  return formatDateForAPI(date);
+}
+
 function BalanceGraph() {
   const [duration, setDuration] = useState("30");
   const [customDate, setCustomDate] = useState("");
   const [history, setHistory] = useState<BalanceHistory[]>([]);
+  const [historicalPayPeriods, setHistoricalPayPeriods] = useState<
+    PayPeriod[] | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleLines, setVisibleLines] = useState<Record<LineKey, boolean>>({
@@ -104,8 +132,37 @@ function BalanceGraph() {
 
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch balance history');
-      const data = await response.json();
+      const data: BalanceHistory[] = await response.json();
       setHistory(data);
+
+      const periodStartDate = data[0]?.balance_date
+        ? formatDateForAPI(data[0].balance_date)
+        : getFallbackStartDate(duration, startDate);
+      const periodEndDate = addUtcDays(
+        data[data.length - 1]?.balance_date ?? new Date(),
+        1
+      );
+
+      try {
+        const payPeriodsResponse = await fetch(
+          `/api/pay-periods?includeClosed=true&startDate=${periodStartDate}&endDate=${periodEndDate}`
+        );
+
+        if (!payPeriodsResponse.ok) {
+          throw new Error("Failed to fetch historical pay periods");
+        }
+
+        const payPeriodsData: PayPeriod[] = await payPeriodsResponse.json();
+        setHistoricalPayPeriods(
+          payPeriodsData.map((period) => ({
+            ...period,
+            salary_amount: Number(period.salary_amount),
+          }))
+        );
+      } catch (periodError) {
+        console.error("Error fetching historical pay periods:", periodError);
+        setHistoricalPayPeriods(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balance history');
       console.error('Error fetching balance history:', err);
@@ -139,46 +196,22 @@ function BalanceGraph() {
   }
 
   const data: DataPoint[] = (() => {
-    let cumulativeSavings = 0;
+    const savingsTimeline = calculateAdhocSavingsTimeline(
+      history,
+      entries,
+      historicalPayPeriods ?? payPeriods,
+      adhocSettings.daily_amount,
+      { logger: graphSavingsLogger }
+    );
+
     return history.map((entry, i) => {
-      if (i > 0) {
-        const prev = history[i - 1];
-        const prevDate = new Date(prev.balance_date);
-        const currDate = new Date(entry.balance_date);
-        const daysGap = Math.round(
-          (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        const salaryReceived = payPeriods
-          .filter((p) => {
-            const d = new Date(p.start_date);
-            return d > prevDate && d <= currDate;
-          })
-          .reduce((sum, p) => sum + p.salary_amount, 0);
-
-        const expensesDue = entries
-          .filter((e) => {
-            const d = new Date(e.due_date);
-            return d > prevDate && d <= currDate;
-          })
-          .reduce((sum, e) => sum + e.amount, 0);
-
-        const expected =
-          Number(prev.bank_balance) +
-          salaryReceived -
-          expensesDue -
-          daysGap * adhocSettings.daily_amount;
-
-        cumulativeSavings += Number(entry.bank_balance) - expected;
-      }
-
       return {
         date: formatDateForDisplay(entry.balance_date),
         "Bank Balance": Number(entry.bank_balance),
         "Current Period End Balance": Number(entry.current_period_end_balance),
         "Next Period End Balance": Number(entry.next_period_end_balance),
         "Period After End Balance": Number(entry.period_after_end_balance),
-        "Adhoc Savings": Math.round(cumulativeSavings * 100) / 100,
+        "Adhoc Savings": savingsTimeline[i]?.cumulative ?? 0,
       };
     });
   })();
@@ -218,9 +251,9 @@ function BalanceGraph() {
     entry["Period After End Balance"],
     (entry["Trend"] as number) || entry["Bank Balance"],
   ]);
-  const minValue = Math.min(...allValues);
-  const maxValue = Math.max(...allValues);
-  const padding = (maxValue - minValue) * 0.1; // 10% padding
+  const minValue = allValues.length ? Math.min(...allValues) : 0;
+  const maxValue = allValues.length ? Math.max(...allValues) : 0;
+  const padding = Math.max((maxValue - minValue) * 0.1, 1); // 10% padding
 
   const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
@@ -240,8 +273,8 @@ function BalanceGraph() {
 
   // Gradient for savings chart: green above 0, red below
   const savingsValues = data.map((d) => d["Adhoc Savings"]);
-  const savingsMin = Math.min(...savingsValues);
-  const savingsMax = Math.max(...savingsValues);
+  const savingsMin = savingsValues.length ? Math.min(...savingsValues) : 0;
+  const savingsMax = savingsValues.length ? Math.max(...savingsValues) : 0;
   const savingsPad = Math.max(Math.abs(savingsMax), Math.abs(savingsMin), 1) * 0.15;
   const savingsDomainMin = savingsMin - savingsPad;
   const savingsDomainMax = savingsMax + savingsPad;

@@ -5,6 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
+import {
+  calculateMonthToDateAdhocSavings,
+  calculateMonthlyBudgetOverview,
+  createAdhocSavingsConsoleLogger,
+} from "@/lib/utils/budget-calculations";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
 import type { BalanceHistory } from "@/types/balanceHistory";
@@ -20,6 +25,11 @@ interface PeriodSummary {
   daysInPeriod: number;
   remaining: number;
 }
+
+const monthlySavingsLogger =
+  process.env.NEXT_PUBLIC_LOG_BUDGET_CALCULATIONS === "true"
+    ? createAdhocSavingsConsoleLogger("summary-monthly-savings")
+    : undefined;
 
 export function BudgetSummary() {
   const { 
@@ -84,76 +94,25 @@ export function BudgetSummary() {
   const incomePayPeriods = monthlyPayPeriods ?? payPeriods;
 
   const monthlySavings = useMemo(() => {
-    if (monthlyHistory.length < 2) return null;
-
-    let cumulative = 0;
-    let trackedDays = 0;
-
-    for (let i = 1; i < monthlyHistory.length; i++) {
-      const prev = monthlyHistory[i - 1];
-      const curr = monthlyHistory[i];
-
-      const prevDate = new Date(prev.balance_date);
-      const currDate = new Date(curr.balance_date);
-      const daysGap = Math.round(
-        (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      const salaryReceived = incomePayPeriods
-        .filter((p) => {
-          const d = new Date(p.start_date);
-          return d > prevDate && d <= currDate;
-        })
-        .reduce((sum, p) => sum + p.salary_amount, 0);
-
-      const expensesDue = entries
-        .filter((e) => {
-          const d = new Date(e.due_date);
-          return d > prevDate && d <= currDate;
-        })
-        .reduce((sum, e) => sum + e.amount, 0);
-
-      const expected =
-        Number(prev.bank_balance) +
-        salaryReceived -
-        expensesDue -
-        daysGap * adhocSettings.daily_amount;
-
-      cumulative += Number(curr.bank_balance) - expected;
-      trackedDays += daysGap;
-    }
-
-    return { cumulative, trackedDays };
+    const today = getTodayInUTC();
+    return calculateMonthToDateAdhocSavings(
+      monthlyHistory,
+      entries,
+      incomePayPeriods,
+      adhocSettings.daily_amount,
+      today,
+      { logger: monthlySavingsLogger }
+    );
   }, [monthlyHistory, entries, incomePayPeriods, adhocSettings.daily_amount]);
 
   const monthlyOverview = useMemo(() => {
     const today = getTodayInUTC();
-    const currentYear = today.getUTCFullYear();
-    const currentMonth = today.getUTCMonth();
-
-    const totalExpenses = entries.reduce((sum, entry) => sum + entry.amount, 0);
-
-    const totalIncome = incomePayPeriods
-      .filter((period) => {
-        const startDate = new Date(period.start_date);
-        return (
-          startDate.getUTCFullYear() === currentYear &&
-          startDate.getUTCMonth() === currentMonth
-        );
-      })
-      .reduce((sum, period) => sum + period.salary_amount, 0);
-
-    const daysInMonth = new Date(
-      Date.UTC(currentYear, currentMonth + 1, 0)
-    ).getUTCDate();
-    const totalAdhoc = daysInMonth * adhocSettings.daily_amount;
-
-    return {
-      totalExpenses,
-      totalIncome,
-      totalAdhoc,
-      difference: totalIncome - totalExpenses - totalAdhoc,
-    };
+    return calculateMonthlyBudgetOverview(
+      entries,
+      incomePayPeriods,
+      adhocSettings.daily_amount,
+      today
+    );
   }, [entries, incomePayPeriods, adhocSettings.daily_amount]);
 
   const periods = useMemo(() => {

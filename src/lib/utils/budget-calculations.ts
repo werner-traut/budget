@@ -103,30 +103,31 @@ function sumPayPeriodsBetweenDates(
     .reduce((sum, period) => sum + Number(period.salary_amount), 0);
 }
 
+function sumPayPeriodsInUtcMonth(payPeriods: PayPeriod[], monthDate: Date): number {
+  return payPeriods
+    .filter((period) => {
+      const periodStart = new Date(period.start_date);
+      return isSameUtcMonth(periodStart, monthDate);
+    })
+    .reduce((sum, period) => sum + Number(period.salary_amount), 0);
+}
+
 export function calculateMonthlyBudgetOverview(
   entries: BudgetEntry[],
   payPeriods: PayPeriod[],
   dailyAmount: number,
   today: Date
 ): MonthlyBudgetOverview {
-  const monthStart = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)
-  );
-  const todayDay = today.getUTCDate();
+  const daysInMonth = getDaysInUtcMonth(today);
 
   const totalExpenses = sumBudgetEntriesByProjectedDay(
     entries,
     today,
     1,
-    todayDay
+    daysInMonth
   );
-  const totalIncome = sumPayPeriodsBetweenDates(
-    payPeriods,
-    monthStart,
-    today,
-    true
-  );
-  const totalAdhoc = todayDay * Number(dailyAmount);
+  const totalIncome = sumPayPeriodsInUtcMonth(payPeriods, today);
+  const totalAdhoc = daysInMonth * Number(dailyAmount);
 
   return {
     totalExpenses: roundCurrency(totalExpenses),

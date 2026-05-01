@@ -85,7 +85,7 @@ describe("budget calculation utilities", () => {
     });
   });
 
-  it("calculates monthly overview through today using projected budget days", () => {
+  it("calculates monthly overview for the full month using projected budget days", () => {
     const overview = calculateMonthlyBudgetOverview(
       [
         budgetEntry("2026-02-05", 200),
@@ -100,10 +100,10 @@ describe("budget calculation utilities", () => {
     );
 
     expect(overview).toEqual({
-      totalExpenses: 200,
-      totalIncome: 100,
-      totalAdhoc: 200,
-      difference: -300,
+      totalExpenses: 700,
+      totalIncome: 1000,
+      totalAdhoc: 620,
+      difference: -320,
     });
   });
 

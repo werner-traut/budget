@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { getTodayInUTC } from "@/lib/utils/date";
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export const runtime = 'nodejs';
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const startDate = url.searchParams.get("startDate");
 
   try {
-    const whereCondition: any = {
+    const whereCondition: Prisma.balance_historyWhereInput = {
       user_id: session.user.id,
     };
 

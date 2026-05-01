@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { type PayPeriod, type PeriodType } from "@/types/periods";
 import PayPeriodForm from "./PayPeriodForm";
@@ -251,7 +251,7 @@ export function PayPeriodManager() {
             // Determine label
 
             let typeLabel = "";
-            let periodData = period;
+            const periodData = period;
 
             if (isAnimating) {
               // period is definitely defined in tempPeriods (except maybe initial empty state?)
@@ -322,6 +322,7 @@ export function PayPeriodManager() {
 
       {showForm && (
         <PayPeriodForm
+          key={selectedPeriod?.id ?? selectedPeriodType}
           period={selectedPeriod}
           periodType={selectedPeriodType}
           onSubmit={handleSubmit}

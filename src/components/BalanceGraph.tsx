@@ -466,7 +466,7 @@ function BalanceGraph() {
                   width={80}
                 />
                 <Tooltip
-                  formatter={(value: number | undefined) => [
+                  formatter={(value: ValueType | undefined) => [
                     `$${Number(value ?? 0).toFixed(2)}`,
                     "Adhoc Savings",
                   ]}

@@ -1,5 +1,5 @@
 import { PayPeriod, PeriodType } from "@/types/periods";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { formatDateForAPI, formatDateForDisplay } from "@/lib/utils/date";
 
@@ -20,15 +20,6 @@ export default function PayPeriodForm({
     salary_amount: period?.salary_amount || 0,
     id: period?.id,
   });
-
-  useEffect(() => {
-    setFormData({
-      period_type: periodType,
-      start_date: formatDateForDisplay(period?.start_date ?? new Date()),
-      salary_amount: period?.salary_amount || 0,
-      id: period?.id,
-    });
-  }, [period, periodType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

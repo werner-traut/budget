@@ -46,19 +46,28 @@ function historyRow(
 }
 
 describe("calculateMonthlyBudgetOverview", () => {
-  it("projects the full month using projected budget days", () => {
+  it("counts only entries and pay periods dated in the current month", () => {
     const overview = calculateMonthlyBudgetOverview(
-      [budgetEntry("2026-02-05", 200), budgetEntry("2026-01-20", 500)],
-      [payPeriod("2026-01-02", 100), payPeriod("2026-01-20", 900)],
+      [
+        budgetEntry("2026-01-05", 300),
+        budgetEntry("2026-01-20", 500),
+        budgetEntry("2026-02-05", 200), // next month — excluded
+        budgetEntry("2025-12-28", 150), // previous month — excluded
+      ],
+      [
+        payPeriod("2026-01-02", 100),
+        payPeriod("2026-01-20", 900),
+        payPeriod("2026-02-03", 999), // next month — excluded
+      ],
       20,
       new Date("2026-01-10T00:00:00.000Z")
     );
 
     expect(overview).toEqual({
-      totalExpenses: 700,
+      totalExpenses: 800,
       totalIncome: 1000,
       totalAdhoc: 620, // 31 days * 20
-      difference: -320,
+      difference: -420,
     });
   });
 });

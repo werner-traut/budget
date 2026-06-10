@@ -42,22 +42,12 @@ function getDaysInUtcMonth(date: Date): number {
   ).getUTCDate();
 }
 
-function getProjectedMonthlyDueDay(entry: BudgetEntry, monthDate: Date): number {
-  const dueDate = new Date(entry.due_date);
-  return Math.min(dueDate.getUTCDate(), getDaysInUtcMonth(monthDate));
-}
-
-function sumBudgetEntriesByProjectedDay(
+function sumBudgetEntriesInUtcMonth(
   entries: BudgetEntry[],
-  monthDate: Date,
-  startDay: number,
-  endDay: number
+  monthDate: Date
 ): number {
   return entries
-    .filter((entry) => {
-      const projectedDueDay = getProjectedMonthlyDueDay(entry, monthDate);
-      return projectedDueDay >= startDay && projectedDueDay <= endDay;
-    })
+    .filter((entry) => isSameUtcMonth(new Date(entry.due_date), monthDate))
     // Paid entries count at what was actually paid so the month's plan stays
     // comparable to income; they are not excluded here (this is a full-month
     // plan view, not a remaining-balance projection).
@@ -77,10 +67,12 @@ function sumPayPeriodsInUtcMonth(payPeriods: PayPeriod[], monthDate: Date): numb
 }
 
 /**
- * Static "plan" view of the current calendar month: what the full month is
- * expected to cost (expenses + adhoc allowance) against expected income. This
- * is intentionally a projection from the current budget configuration and is
- * unrelated to recorded balance history.
+ * "Plan" view of the current calendar month: what the month is expected to
+ * cost (expenses + adhoc allowance) against expected income. Both sides count
+ * by actual date — entries due this month and pay periods starting this
+ * month. (This used to project every entry into the month by day-of-month,
+ * which double-counted once recurring items began materializing real
+ * future-dated instances.)
  */
 export function calculateMonthlyBudgetOverview(
   entries: BudgetEntry[],
@@ -90,12 +82,7 @@ export function calculateMonthlyBudgetOverview(
 ): MonthlyBudgetOverview {
   const daysInMonth = getDaysInUtcMonth(today);
 
-  const totalExpenses = sumBudgetEntriesByProjectedDay(
-    entries,
-    today,
-    1,
-    daysInMonth
-  );
+  const totalExpenses = sumBudgetEntriesInUtcMonth(entries, today);
   const totalIncome = sumPayPeriodsInUtcMonth(payPeriods, today);
   const totalAdhoc = daysInMonth * Number(dailyAmount);
 

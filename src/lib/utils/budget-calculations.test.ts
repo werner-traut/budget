@@ -1,34 +1,14 @@
 import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 import {
-  calculateAdhocSavings,
-  calculateAdhocSavingsTimeline,
-  calculateMonthToDateAdhocSavings,
   calculateMonthlyBudgetOverview,
-  type AdhocSavingsCalculationLog,
+  computeAdhocSnapshot,
+  getDaysBetween,
+  sumMonthToDateAdhocSavings,
 } from "./budget-calculations";
 import type { BalanceHistory } from "@/types/balanceHistory";
 import type { BudgetEntry } from "@/types/budget";
 import type { PayPeriod } from "@/types/periods";
-
-function addDays(date: string, days: number): string {
-  const dateObj = new Date(`${date}T00:00:00.000Z`);
-  dateObj.setUTCDate(dateObj.getUTCDate() + days);
-  return dateObj.toISOString().slice(0, 10);
-}
-
-function balanceHistory(date: string, bankBalance: number): BalanceHistory {
-  return {
-    id: `balance-${date}`,
-    bank_balance: bankBalance,
-    current_period_end_balance: 0,
-    next_period_end_balance: 0,
-    period_after_end_balance: 0,
-    balance_date: date,
-    created_at: date,
-    updated_at: date,
-  };
-}
 
 function budgetEntry(date: string, amount: number): BudgetEntry {
   return {
@@ -55,46 +35,18 @@ function payPeriod(date: string, salaryAmount: number): PayPeriod {
   };
 }
 
-describe("budget calculation utilities", () => {
-  it("calculates month-to-date savings using budget entry day-of-month", () => {
-    const logs: AdhocSavingsCalculationLog[] = [];
+function historyRow(
+  date: string,
+  adhocDelta: number | null
+): Pick<BalanceHistory, "balance_date" | "adhoc_delta"> {
+  return { balance_date: date, adhoc_delta: adhocDelta };
+}
 
-    const savings = calculateMonthToDateAdhocSavings(
-      [
-        balanceHistory("2026-01-01", 1000),
-        balanceHistory("2026-01-10", 700),
-      ],
-      [
-        budgetEntry("2026-02-05", 200),
-        budgetEntry("2026-02-20", 500),
-      ],
-      [payPeriod("2026-01-02", 100)],
-      20,
-      new Date("2026-01-10T00:00:00.000Z"),
-      { logger: (details) => logs.push(details) }
-    );
-
-    expect(savings).toEqual({ cumulative: 0, trackedDays: 10 });
-    expect(logs[0]).toMatchObject({
-      salaryReceived: 100,
-      expensesDue: 200,
-      adhocBudget: 200,
-      expectedBalance: 700,
-      delta: 0,
-      status: "on-budget",
-    });
-  });
-
-  it("calculates monthly overview for the full month using projected budget days", () => {
+describe("calculateMonthlyBudgetOverview", () => {
+  it("projects the full month using projected budget days", () => {
     const overview = calculateMonthlyBudgetOverview(
-      [
-        budgetEntry("2026-02-05", 200),
-        budgetEntry("2026-01-20", 500),
-      ],
-      [
-        payPeriod("2026-01-02", 100),
-        payPeriod("2026-01-20", 900),
-      ],
+      [budgetEntry("2026-02-05", 200), budgetEntry("2026-01-20", 500)],
+      [payPeriod("2026-01-02", 100), payPeriod("2026-01-20", 900)],
       20,
       new Date("2026-01-10T00:00:00.000Z")
     );
@@ -102,85 +54,94 @@ describe("budget calculation utilities", () => {
     expect(overview).toEqual({
       totalExpenses: 700,
       totalIncome: 1000,
-      totalAdhoc: 620,
+      totalAdhoc: 620, // 31 days * 20
       difference: -320,
     });
   });
+});
 
-  it("calculates over-budget savings and emits interval diagnostics", () => {
-    const logs: AdhocSavingsCalculationLog[] = [];
-
-    const timeline = calculateAdhocSavingsTimeline(
-      [balanceHistory("2026-01-01", 1000), balanceHistory("2026-01-04", 940)],
-      [budgetEntry("2026-01-03", 200)],
-      [payPeriod("2026-01-02", 300)],
-      20,
-      { logger: (details) => logs.push(details) }
-    );
-
-    expect(timeline).toEqual([
-      { cumulative: 0, trackedDays: 0 },
-      { cumulative: -100, trackedDays: 3 },
-    ]);
-    expect(logs).toEqual([
-      {
-        previousDate: "2026-01-01",
-        currentDate: "2026-01-04",
-        daysGap: 3,
-        previousBalance: 1000,
-        actualBalance: 940,
-        salaryReceived: 300,
-        expensesDue: 200,
-        adhocBudget: 60,
-        expectedBalance: 1040,
-        delta: -100,
-        cumulative: -100,
-        trackedDays: 3,
-        status: "over-budget",
-      },
-    ]);
+describe("getDaysBetween", () => {
+  it("returns the whole-day gap between two UTC date strings", () => {
+    expect(getDaysBetween("2026-01-01", "2026-01-04")).toBe(3);
+    expect(getDaysBetween("2026-01-31", "2026-02-01")).toBe(1);
+    expect(getDaysBetween("2026-01-10", "2026-01-10")).toBe(0);
   });
+});
 
-  it("excludes prior-date transactions and includes current-date transactions", () => {
-    const logs: AdhocSavingsCalculationLog[] = [];
+describe("computeAdhocSnapshot", () => {
+  it("reports over-budget when actual balance trails expectation", () => {
+    const result = computeAdhocSnapshot({
+      previousBalance: 1000,
+      previousCumulative: 0,
+      actualBalance: 1000,
+      salaryReceived: 300,
+      expensesDue: 200,
+      daysGap: 3,
+      dailyAmount: 20,
+    });
 
-    const finalSavings = calculateAdhocSavings(
-      [balanceHistory("2026-01-01", 1000), balanceHistory("2026-01-04", 1045)],
-      [
-        budgetEntry("2026-01-01", 999),
-        budgetEntry("2026-01-04", 25),
-      ],
-      [
-        payPeriod("2026-01-01", 999),
-        payPeriod("2026-01-04", 100),
-      ],
-      10,
-      { logger: (details) => logs.push(details) }
-    );
-
-    expect(finalSavings).toEqual({ cumulative: 0, trackedDays: 3 });
-    expect(logs[0]).toMatchObject({
-      salaryReceived: 100,
-      expensesDue: 25,
-      adhocBudget: 30,
-      expectedBalance: 1045,
-      delta: 0,
-      status: "on-budget",
+    // expected = 1000 + 300 - 200 - 60 = 1040; delta = 1000 - 1040 = -40
+    expect(result).toEqual({
+      delta: -40,
+      cumulative: -40,
+      adhocBudget: 60,
+      expectedBalance: 1040,
+      status: "over-budget",
     });
   });
 
-  it("does not report savings without two balance checks", () => {
-    expect(calculateAdhocSavings([], [], [], 40)).toBeNull();
-    expect(
-      calculateAdhocSavings([balanceHistory("2026-01-01", 1000)], [], [], 40)
-    ).toBeNull();
+  it("chains cumulative onto the previous running total", () => {
+    const result = computeAdhocSnapshot({
+      previousBalance: 500,
+      previousCumulative: 125,
+      actualBalance: 600,
+      salaryReceived: 0,
+      expensesDue: 0,
+      daysGap: 1,
+      dailyAmount: 40,
+    });
+
+    // expected = 500 - 40 = 460; delta = 600 - 460 = 140; cumulative = 125 + 140
+    expect(result.delta).toBe(140);
+    expect(result.cumulative).toBe(265);
+    expect(result.status).toBe("under-budget");
   });
 
-  it("matches actual-minus-expected over generated single intervals", () => {
+  it("treats a zero delta as on-budget", () => {
+    const result = computeAdhocSnapshot({
+      previousBalance: 1000,
+      previousCumulative: 0,
+      actualBalance: 940,
+      salaryReceived: 0,
+      expensesDue: 0,
+      daysGap: 3,
+      dailyAmount: 20,
+    });
+
+    expect(result.delta).toBe(0);
+    expect(result.status).toBe("on-budget");
+  });
+
+  it("clamps negative day gaps so adhoc budget never goes negative", () => {
+    const result = computeAdhocSnapshot({
+      previousBalance: 1000,
+      previousCumulative: 0,
+      actualBalance: 1000,
+      salaryReceived: 0,
+      expensesDue: 0,
+      daysGap: -5,
+      dailyAmount: 20,
+    });
+
+    expect(result.adhocBudget).toBe(0);
+  });
+
+  it("matches actual-minus-expected over generated inputs", () => {
     fc.assert(
       fc.property(
         fc.record({
           previousBalanceCents: fc.integer({ min: 1_000_000, max: 2_000_000 }),
+          previousCumulativeCents: fc.integer({ min: -100_000, max: 100_000 }),
           salaryCents: fc.integer({ min: 0, max: 200_000 }),
           expenseCents: fc.integer({ min: 0, max: 200_000 }),
           dailyAmountCents: fc.integer({ min: 0, max: 5_000 }),
@@ -189,36 +150,36 @@ describe("budget calculation utilities", () => {
         }),
         ({
           previousBalanceCents,
+          previousCumulativeCents,
           salaryCents,
           expenseCents,
           dailyAmountCents,
           daysGap,
           deltaCents,
         }) => {
-          const startDate = "2026-01-01";
-          const endDate = addDays(startDate, daysGap);
           const expectedCents =
             previousBalanceCents +
             salaryCents -
             expenseCents -
             daysGap * dailyAmountCents;
           const actualCents = expectedCents + deltaCents;
-          const logs: AdhocSavingsCalculationLog[] = [];
 
-          const timeline = calculateAdhocSavingsTimeline(
-            [
-              balanceHistory(startDate, previousBalanceCents / 100),
-              balanceHistory(endDate, actualCents / 100),
-            ],
-            [budgetEntry(endDate, expenseCents / 100)],
-            [payPeriod(endDate, salaryCents / 100)],
-            dailyAmountCents / 100,
-            { logger: (details) => logs.push(details) }
+          const result = computeAdhocSnapshot({
+            previousBalance: previousBalanceCents / 100,
+            previousCumulative: previousCumulativeCents / 100,
+            actualBalance: actualCents / 100,
+            salaryReceived: salaryCents / 100,
+            expensesDue: expenseCents / 100,
+            daysGap,
+            dailyAmount: dailyAmountCents / 100,
+          });
+
+          expect(result.delta).toBeCloseTo(deltaCents / 100, 2);
+          expect(result.cumulative).toBeCloseTo(
+            (previousCumulativeCents + deltaCents) / 100,
+            2
           );
-
-          expect(timeline[1].cumulative).toBeCloseTo(deltaCents / 100, 2);
-          expect(logs[0].delta).toBeCloseTo(deltaCents / 100, 2);
-          expect(logs[0].status).toBe(
+          expect(result.status).toBe(
             deltaCents > 0
               ? "under-budget"
               : deltaCents < 0
@@ -228,5 +189,49 @@ describe("budget calculation utilities", () => {
         }
       )
     );
+  });
+});
+
+describe("sumMonthToDateAdhocSavings", () => {
+  const today = new Date("2026-06-10T00:00:00.000Z");
+
+  it("returns null when there are no tracked rows this month", () => {
+    expect(sumMonthToDateAdhocSavings([], today)).toBeNull();
+    expect(
+      sumMonthToDateAdhocSavings([historyRow("2026-06-02", null)], today)
+    ).toBeNull();
+  });
+
+  it("sums stored deltas within the current UTC month only", () => {
+    const result = sumMonthToDateAdhocSavings(
+      [
+        historyRow("2026-05-31", 999), // previous month — ignored
+        historyRow("2026-06-01", 0), // baseline
+        historyRow("2026-06-04", -25.5),
+        historyRow("2026-06-08", 100),
+        historyRow("2026-06-20", 50), // future-dated — ignored
+      ],
+      today
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.cumulative).toBe(74.5);
+    expect(result?.status).toBe("under-budget");
+    // first tracked row 06-01 .. last tracked row 06-08 = 8 days
+    expect(result?.trackedDays).toBe(8);
+  });
+
+  it("ignores rows without a stored delta", () => {
+    const result = sumMonthToDateAdhocSavings(
+      [
+        historyRow("2026-06-02", null),
+        historyRow("2026-06-05", -40),
+      ],
+      today
+    );
+
+    expect(result?.cumulative).toBe(-40);
+    expect(result?.status).toBe("over-budget");
+    expect(result?.trackedDays).toBe(1);
   });
 });

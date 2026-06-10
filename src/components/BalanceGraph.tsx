@@ -28,14 +28,8 @@ import {
   NameType,
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
-import { formatDateForAPI, formatDateForDisplay } from "@/lib/utils/date";
-import {
-  calculateAdhocSavingsTimeline,
-  createAdhocSavingsConsoleLogger,
-} from "@/lib/utils/budget-calculations";
-import { useBudgetStore } from "@/store/useBudgetStore";
+import { formatDateForDisplay } from "@/lib/utils/date";
 import type { BalanceHistory } from '@/types/balanceHistory';
-import type { PayPeriod } from "@/types/periods";
 
 // Define the shape of our data point
 interface DataPoint {
@@ -44,8 +38,8 @@ interface DataPoint {
   "Current Period End Balance": number;
   "Next Period End Balance": number;
   "Period After End Balance": number;
-  "Adhoc Savings": number;
-  [key: string]: string | number; // Allow for dynamic key access
+  "Adhoc Savings": number | null;
+  [key: string]: string | number | null; // Allow for dynamic key access
 }
 
 // Define the structure of the payload item
@@ -76,33 +70,10 @@ const LINE_CONFIG = [
 
 type LineKey = (typeof LINE_CONFIG)[number]["key"];
 
-const graphSavingsLogger =
-  process.env.NEXT_PUBLIC_LOG_BUDGET_CALCULATIONS === "true"
-    ? createAdhocSavingsConsoleLogger("graph-adhoc-savings")
-    : undefined;
-
-function addUtcDays(date: string | Date, days: number): string {
-  const dateObj = new Date(date);
-  dateObj.setUTCDate(dateObj.getUTCDate() + days);
-  return formatDateForAPI(dateObj);
-}
-
-function getFallbackStartDate(duration: string, startDate?: string): string {
-  if (duration === "custom" && startDate) return startDate;
-
-  const days = Number(duration);
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - (Number.isFinite(days) ? days : 30));
-  return formatDateForAPI(date);
-}
-
 function BalanceGraph() {
   const [duration, setDuration] = useState("30");
   const [customDate, setCustomDate] = useState("");
   const [history, setHistory] = useState<BalanceHistory[]>([]);
-  const [historicalPayPeriods, setHistoricalPayPeriods] = useState<
-    PayPeriod[] | null
-  >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleLines, setVisibleLines] = useState<Record<LineKey, boolean>>({
@@ -113,7 +84,6 @@ function BalanceGraph() {
     "Period After End Balance": true,
     "Adhoc Savings": true,
   });
-  const { entries, payPeriods, adhocSettings } = useBudgetStore();
 
   const toggleLine = (key: LineKey) =>
     setVisibleLines((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -134,35 +104,6 @@ function BalanceGraph() {
       if (!response.ok) throw new Error('Failed to fetch balance history');
       const data: BalanceHistory[] = await response.json();
       setHistory(data);
-
-      const periodStartDate = data[0]?.balance_date
-        ? formatDateForAPI(data[0].balance_date)
-        : getFallbackStartDate(duration, startDate);
-      const periodEndDate = addUtcDays(
-        data[data.length - 1]?.balance_date ?? new Date(),
-        1
-      );
-
-      try {
-        const payPeriodsResponse = await fetch(
-          `/api/pay-periods?includeClosed=true&startDate=${periodStartDate}&endDate=${periodEndDate}`
-        );
-
-        if (!payPeriodsResponse.ok) {
-          throw new Error("Failed to fetch historical pay periods");
-        }
-
-        const payPeriodsData: PayPeriod[] = await payPeriodsResponse.json();
-        setHistoricalPayPeriods(
-          payPeriodsData.map((period) => ({
-            ...period,
-            salary_amount: Number(period.salary_amount),
-          }))
-        );
-      } catch (periodError) {
-        console.error("Error fetching historical pay periods:", periodError);
-        setHistoricalPayPeriods(null);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balance history');
       console.error('Error fetching balance history:', err);
@@ -195,26 +136,24 @@ function BalanceGraph() {
     );
   }
 
-  const data: DataPoint[] = (() => {
-    const savingsTimeline = calculateAdhocSavingsTimeline(
-      history,
-      entries,
-      historicalPayPeriods ?? payPeriods,
-      adhocSettings.daily_amount,
-      { logger: graphSavingsLogger }
-    );
+  const data: DataPoint[] = history.map((entry) => {
+    // Cumulative adhoc savings is computed server-side and frozen at write
+    // time. Rows recorded before the feature have no value and are left as
+    // gaps so the series naturally begins where tracking started.
+    const cumulative =
+      entry.adhoc_cumulative === null || entry.adhoc_cumulative === undefined
+        ? null
+        : Number(entry.adhoc_cumulative);
 
-    return history.map((entry, i) => {
-      return {
-        date: formatDateForDisplay(entry.balance_date),
-        "Bank Balance": Number(entry.bank_balance),
-        "Current Period End Balance": Number(entry.current_period_end_balance),
-        "Next Period End Balance": Number(entry.next_period_end_balance),
-        "Period After End Balance": Number(entry.period_after_end_balance),
-        "Adhoc Savings": savingsTimeline[i]?.cumulative ?? 0,
-      };
-    });
-  })();
+    return {
+      date: formatDateForDisplay(entry.balance_date),
+      "Bank Balance": Number(entry.bank_balance),
+      "Current Period End Balance": Number(entry.current_period_end_balance),
+      "Next Period End Balance": Number(entry.next_period_end_balance),
+      "Period After End Balance": Number(entry.period_after_end_balance),
+      "Adhoc Savings": cumulative,
+    };
+  });
 
   // Calculate linear regression trend line for Bank Balance
   const n = data.length;
@@ -272,9 +211,12 @@ function BalanceGraph() {
   };
 
   // Gradient for savings chart: green above 0, red below
-  const savingsValues = data.map((d) => d["Adhoc Savings"]);
-  const savingsMin = savingsValues.length ? Math.min(...savingsValues) : 0;
-  const savingsMax = savingsValues.length ? Math.max(...savingsValues) : 0;
+  const savingsValues = data
+    .map((d) => d["Adhoc Savings"])
+    .filter((v): v is number => v !== null);
+  const hasSavingsData = savingsValues.length > 0;
+  const savingsMin = hasSavingsData ? Math.min(...savingsValues) : 0;
+  const savingsMax = hasSavingsData ? Math.max(...savingsValues) : 0;
   const savingsPad = Math.max(Math.abs(savingsMax), Math.abs(savingsMin), 1) * 0.15;
   const savingsDomainMin = savingsMin - savingsPad;
   const savingsDomainMax = savingsMax + savingsPad;
@@ -347,7 +289,12 @@ function BalanceGraph() {
         <div style={{ height: 'calc(100vh - 364px)', minHeight: '420px' }} className="flex flex-col gap-2">
         {/* Balance chart — takes all remaining space */}
         <div className="flex-1 min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minHeight={150}
+            initialDimension={{ width: 800, height: 300 }}
+          >
             <LineChart data={data} margin={chartMargin}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               <XAxis
@@ -435,7 +382,16 @@ function BalanceGraph() {
             </span>
           </p>
           <div className="h-[180px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            {!hasSavingsData ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                No adhoc savings tracked in this range yet.
+              </div>
+            ) : (
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              initialDimension={{ width: 800, height: 180 }}
+            >
               <AreaChart data={data} margin={savingsMargin}>
                 <defs>
                   <linearGradient
@@ -481,9 +437,11 @@ function BalanceGraph() {
                   fill="url(#savingsGradient)"
                   dot={{ r: 3, fill: "#f59e0b", strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
+                  connectNulls={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>}
         </div>

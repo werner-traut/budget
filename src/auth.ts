@@ -1,7 +1,25 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import { authConfig } from "./auth.config";
+
+// Local-only authentication shortcut. Guarded by NODE_ENV so it can never be
+// enabled in a production build, regardless of how the env var is set.
+export const DEV_BYPASS_EMAIL = "dev@budget.local";
+const devBypassEnabled =
+  process.env.DEV_AUTH_BYPASS === "true" &&
+  process.env.NODE_ENV !== "production";
+
+const devBypassProvider = Credentials({
+  id: "dev-bypass",
+  name: "Developer Bypass",
+  credentials: {},
+  async authorize() {
+    // No real credentials are checked — this is a dev-only convenience.
+    return { id: "dev-bypass", email: DEV_BYPASS_EMAIL, name: "Dev User" };
+  },
+});
 
 async function getOrCreateUser(email: string) {
   try {
@@ -36,9 +54,16 @@ export const {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
+    ...(devBypassEnabled ? [devBypassProvider] : []),
   ],
   callbacks: {
-    async jwt({ token, profile }) {
+    async jwt({ token, profile, user }) {
+      // Credentials sign-in delivers the email on `user`; copy it onto the
+      // token so the lookup below works the same as for OAuth.
+      if (user?.email && !token.email) {
+        token.email = user.email;
+      }
+
       // Only proceed if we have an email
       if (!token.email) return token;
 

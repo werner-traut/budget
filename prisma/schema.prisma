@@ -47,14 +47,50 @@ model balance_history {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model budget_items {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  user_id    String   @db.Uuid
-  name       String
-  amount     Decimal  @db.Decimal(10, 2)
-  due_date   DateTime @db.Date
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @default(now()) @db.Timestamptz(6)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                  String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id             String           @db.Uuid
+  name                String
+  amount              Decimal          @db.Decimal(10, 2)
+  due_date            DateTime         @db.Date
+  // Paid tracking: null = unpaid. actual_amount records the real payment
+  // when it differs from the budgeted amount.
+  paid_at             DateTime?        @db.Date
+  actual_amount       Decimal?         @db.Decimal(10, 2)
+  // Set when this row was materialized from a recurring template. A partial
+  // unique index UNIQUE (source_recurring_id, due_date) WHERE
+  // source_recurring_id IS NOT NULL exists in SQL only (see the
+  // recurring_items migration) — Prisma cannot model partial indexes.
+  source_recurring_id String?          @db.Uuid
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime         @default(now()) @db.Timestamptz(6)
+  users               users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recurring_items     recurring_items? @relation(fields: [source_recurring_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model recurring_items {
+  id                   String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id              String                @db.Uuid
+  name                 String
+  amount               Decimal               @db.Decimal(10, 2)
+  frequency            recurrence_frequency
+  // MONTHLY: 1-31, clamped to short months at generation time.
+  day_of_month         Int?
+  // WEEKLY: every N weeks counted from anchor_date.
+  interval_weeks       Int?
+  // First/reference occurrence date. For WEEKLY this anchors the N-week
+  // grid; for MONTHLY and PER_PERIOD no instances are generated before it.
+  anchor_date          DateTime              @db.Date
+  active               Boolean               @default(true)
+  // Generation watermark: instances exist for all occurrences with
+  // due_date <= materialized_through. Keeps deleted instances deleted.
+  materialized_through DateTime?             @db.Date
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime              @default(now()) @db.Timestamptz(6)
+  users                users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "recurring_items_user_id_fkey")
+  budget_items         budget_items[]
+
+  @@index([user_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -95,8 +131,15 @@ model users {
   budget_items    budget_items[]
   daily_balances  daily_balances[]
   pay_periods     pay_periods[]
+  recurring_items recurring_items[]
 
   @@index([email])
+}
+
+enum recurrence_frequency {
+  MONTHLY
+  WEEKLY
+  PER_PERIOD
 }
 
 enum period_type {

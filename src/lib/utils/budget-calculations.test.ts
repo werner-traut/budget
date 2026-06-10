@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 import {
   calculateMonthlyBudgetOverview,
+  calculatePeriodSummaries,
   computeAdhocSnapshot,
   getDaysBetween,
   sumMonthToDateAdhocSavings,
@@ -14,10 +15,12 @@ function budgetEntry(date: string, amount: number): BudgetEntry {
   return {
     id: `entry-${date}-${amount}`,
     user_id: "user-1",
-    period_id: null,
     name: "Expense",
     amount,
     due_date: date,
+    paid_at: null,
+    actual_amount: null,
+    source_recurring_id: null,
     created_at: date,
     updated_at: date,
   };
@@ -57,6 +60,92 @@ describe("calculateMonthlyBudgetOverview", () => {
       totalAdhoc: 620, // 31 days * 20
       difference: -320,
     });
+  });
+});
+
+describe("calculateMonthlyBudgetOverview paid entries", () => {
+  it("counts paid entries at their actual amount", () => {
+    const paid = {
+      ...budgetEntry("2026-01-20", 500),
+      paid_at: "2026-01-19",
+      actual_amount: 450,
+    };
+    const overview = calculateMonthlyBudgetOverview(
+      [paid, budgetEntry("2026-01-05", 200)],
+      [],
+      0,
+      new Date("2026-01-10T00:00:00.000Z")
+    );
+
+    expect(overview.totalExpenses).toBe(650);
+  });
+
+  it("falls back to the budgeted amount when no actual amount is stored", () => {
+    const paid = { ...budgetEntry("2026-01-20", 500), paid_at: "2026-01-19" };
+    const overview = calculateMonthlyBudgetOverview(
+      [paid],
+      [],
+      0,
+      new Date("2026-01-10T00:00:00.000Z")
+    );
+
+    expect(overview.totalExpenses).toBe(500);
+  });
+});
+
+describe("calculatePeriodSummaries", () => {
+  const today = new Date("2026-06-10T00:00:00.000Z");
+  const periods = [
+    { ...payPeriod("2026-06-01", 3000), period_type: "CURRENT_PERIOD" as const },
+    { ...payPeriod("2026-06-20", 3000), period_type: "NEXT_PERIOD" as const },
+    { ...payPeriod("2026-07-10", 3000), period_type: "PERIOD_AFTER" as const },
+  ];
+
+  it("buckets entries into [start, nextStart) windows and chains balances", () => {
+    const summaries = calculatePeriodSummaries(
+      [budgetEntry("2026-06-05", 100), budgetEntry("2026-06-20", 250)],
+      periods,
+      10,
+      1000,
+      today
+    );
+
+    const current = summaries.CURRENT_PERIOD;
+    expect(current.entries).toHaveLength(1);
+    expect(current.totalExpenses).toBe(100);
+    expect(current.salary_amount).toBe(0);
+    // 10 days remaining (06-10 → 06-20) * 10/day = 100 adhoc
+    expect(current.daysInPeriod).toBe(10);
+    expect(current.remaining).toBe(1000 - 100 - 100);
+
+    const next = summaries.NEXT_PERIOD;
+    expect(next.totalExpenses).toBe(250);
+    // 20 days (06-20 → 07-10) * 10/day = 200 adhoc
+    expect(next.remaining).toBe(current.remaining + 3000 - 250 - 200);
+  });
+
+  it("excludes paid entries from expenses but keeps them in the list", () => {
+    const paid = {
+      ...budgetEntry("2026-06-05", 100),
+      paid_at: "2026-06-05",
+      actual_amount: 90,
+    };
+    const summaries = calculatePeriodSummaries(
+      [paid, budgetEntry("2026-06-07", 40)],
+      periods,
+      0,
+      1000,
+      today
+    );
+
+    const current = summaries.CURRENT_PERIOD;
+    expect(current.entries).toHaveLength(2);
+    expect(current.totalExpenses).toBe(40);
+    expect(current.remaining).toBe(1000 - 40);
+  });
+
+  it("returns an empty record without pay periods", () => {
+    expect(calculatePeriodSummaries([], [], 10, 100, today)).toEqual({});
   });
 });
 

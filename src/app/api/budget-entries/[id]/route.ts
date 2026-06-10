@@ -61,6 +61,16 @@ export async function PUT(req: NextRequest) {
       return new NextResponse("Unauthorized", { status: 403 });
     }
 
+    if (
+      body.actual_amount !== undefined &&
+      body.actual_amount !== null &&
+      (typeof body.actual_amount !== "number" || body.actual_amount < 0)
+    ) {
+      return new NextResponse("actual_amount must be a non-negative number", {
+        status: 400,
+      });
+    }
+
     const budgetItem = await prisma.budget_items.update({
       where: { id },
       data: {
@@ -72,6 +82,17 @@ export async function PUT(req: NextRequest) {
                 formatDateForAPI(body.due_date)
               ),
             }
+          : {}),
+        ...(body.paid_at !== undefined
+          ? {
+              paid_at:
+                body.paid_at === null
+                  ? null
+                  : parseDateStringToUTC(formatDateForAPI(body.paid_at)),
+            }
+          : {}),
+        ...(body.actual_amount !== undefined
+          ? { actual_amount: body.actual_amount }
           : {}),
         updated_at: new Date(),
       },

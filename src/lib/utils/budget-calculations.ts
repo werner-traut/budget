@@ -58,7 +58,13 @@ function sumBudgetEntriesByProjectedDay(
       const projectedDueDay = getProjectedMonthlyDueDay(entry, monthDate);
       return projectedDueDay >= startDay && projectedDueDay <= endDay;
     })
-    .reduce((sum, entry) => sum + Number(entry.amount), 0);
+    // Paid entries count at what was actually paid so the month's plan stays
+    // comparable to income; they are not excluded here (this is a full-month
+    // plan view, not a remaining-balance projection).
+    .reduce(
+      (sum, entry) => sum + Number(entry.actual_amount ?? entry.amount),
+      0
+    );
 }
 
 function sumPayPeriodsInUtcMonth(payPeriods: PayPeriod[], monthDate: Date): number {
@@ -99,6 +105,87 @@ export function calculateMonthlyBudgetOverview(
     totalAdhoc: roundCurrency(totalAdhoc),
     difference: roundCurrency(totalIncome - totalExpenses - totalAdhoc),
   };
+}
+
+export interface PeriodSummary {
+  entries: BudgetEntry[];
+  totalExpenses: number;
+  periodStart: string;
+  periodEnd: string | null;
+  salary_amount: number;
+  adhocTotal: number;
+  daysInPeriod: number;
+  remaining: number;
+}
+
+/**
+ * Running end-of-period balance projection across the user's pay periods.
+ *
+ * The chain seeds from the live bank balance, so paid entries are excluded
+ * from each period's expenses — the bank balance already reflects that money
+ * leaving. The current period contributes no salary (already received) and
+ * its adhoc allowance only covers the days still ahead.
+ */
+export function calculatePeriodSummaries(
+  entries: BudgetEntry[],
+  payPeriods: PayPeriod[],
+  dailyAmount: number,
+  dailyBalance: number | null,
+  today: Date
+): Record<string, PeriodSummary> {
+  if (!payPeriods.length) return {};
+
+  let previousRemaining = Number(dailyBalance) ? Number(dailyBalance) : 0;
+
+  return payPeriods.reduce((acc, period, index) => {
+    const nextPeriod = payPeriods[index + 1];
+    const periodStart = new Date(period.start_date);
+    const periodEnd = nextPeriod ? new Date(nextPeriod.start_date) : null;
+
+    const periodEntries = entries.filter((entry) => {
+      const entryDate = new Date(entry.due_date);
+      if (!periodEnd) return entryDate >= periodStart;
+      return entryDate >= periodStart && entryDate < periodEnd;
+    });
+
+    const totalExpenses = periodEntries
+      .filter((entry) => !entry.paid_at)
+      .reduce((sum, entry) => sum + Number(entry.amount), 0);
+
+    let daysInPeriod;
+    if (period.period_type === "CURRENT_PERIOD") {
+      daysInPeriod = periodEnd
+        ? Math.max(
+            0,
+            Math.ceil((periodEnd.getTime() - today.getTime()) / MS_PER_DAY)
+          )
+        : 0;
+    } else {
+      daysInPeriod = periodEnd
+        ? Math.ceil((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY)
+        : 0;
+    }
+
+    const adhocTotal = daysInPeriod * Number(dailyAmount);
+
+    const payAmount =
+      period.period_type === "CURRENT_PERIOD" ? 0 : Number(period.salary_amount);
+    const remaining = previousRemaining + payAmount - totalExpenses - adhocTotal;
+    previousRemaining = remaining;
+
+    acc[period.period_type] = {
+      entries: periodEntries,
+      totalExpenses,
+      periodStart: period.start_date,
+      periodEnd: nextPeriod?.start_date || null,
+      salary_amount: payAmount,
+      adhocTotal,
+      daysInPeriod,
+      remaining,
+    };
+
+    return acc;
+  }, {} as Record<string, PeriodSummary>);
 }
 
 export interface AdhocSnapshotInput {

@@ -5,9 +5,10 @@ import { PayPeriodManager } from "./PayPeriodManager";
 import { BudgetView } from "./BudgetView";
 import { BudgetSummary } from "./BudgetSummary";
 import BalanceGraph from "./BalanceGraph";
+import { RecurringItemsManager } from "./RecurringItemsManager";
 import { useBudgetStore } from "@/store/useBudgetStore";
 
-type ActiveTab = "budget" | "periods" | "summary" | "graph";
+type ActiveTab = "budget" | "recurring" | "periods" | "summary" | "graph";
 
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("budget");
@@ -16,6 +17,7 @@ export function Dashboard() {
     error,
     initialized,
     fetchEntries,
+    fetchRecurringItems,
     fetchDailyBalance,
     fetchAdhocSettings,
     fetchPayPeriods,
@@ -29,6 +31,7 @@ export function Dashboard() {
         try {
           await Promise.all([
             fetchEntries(),
+            fetchRecurringItems(),
             fetchDailyBalance(),
             fetchAdhocSettings(),
             fetchPayPeriods()
@@ -43,7 +46,7 @@ export function Dashboard() {
 
       initializeData();
     }
-  }, [initialized, fetchEntries, fetchDailyBalance, fetchAdhocSettings, setInitialized, fetchPayPeriods, setInitializing]);
+  }, [initialized, fetchEntries, fetchRecurringItems, fetchDailyBalance, fetchAdhocSettings, setInitialized, fetchPayPeriods, setInitializing]);
 
   // Loading state
   if (isInitializing) {
@@ -91,6 +94,7 @@ export function Dashboard() {
           <nav className="flex p-1 space-x-1 bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl max-w-fit border border-gray-200/50 dark:border-gray-700/50">
             {[
               { id: "budget", label: "Budget" },
+              { id: "recurring", label: "Recurring" },
               { id: "periods", label: "Pay Periods" },
               { id: "summary", label: "Summary" },
               { id: "graph", label: "Graph" },
@@ -115,6 +119,7 @@ export function Dashboard() {
         {/* Content Area */}
         <div className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl rounded-3xl border border-white/20 shadow-xl shadow-black/5 p-6 min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
           {activeTab === "budget" && <BudgetView />}
+          {activeTab === "recurring" && <RecurringItemsManager />}
           {activeTab === "periods" && <PayPeriodManager />}
           {activeTab === "summary" && <BudgetSummary />}
           {activeTab === "graph" && <BalanceGraph />}

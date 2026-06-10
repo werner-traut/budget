@@ -21,12 +21,12 @@ export function PayPeriodManager() {
   const {
     payPeriods,
     fetchPayPeriods,
+    fetchEntries,
     setError
   } = useBudgetStore();
 
   const [showForm, setShowForm] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PayPeriod | null>(null);
-  const [isAddingNewPeriod, setIsAddingNewPeriod] = useState(false);
   const [selectedPeriodType, setSelectedPeriodType] = useState<PeriodType>(
     PERIOD_TYPES[0]
   );
@@ -51,53 +51,10 @@ export function PayPeriodManager() {
 
   const currentPeriods = getOrderedPeriods(payPeriods);
 
-  const shiftPeriods = async () => {
-    // Get all periods except CLOSED_PERIOD
-    const periodsToShift = payPeriods.filter(
-      (p) => p.period_type !== "CLOSED_PERIOD"
-    );
-
-    // Calculate new period mappings
-    const periodShifts = [
-      { from: "FUTURE_PERIOD", to: "PERIOD_AFTER" },
-      { from: "PERIOD_AFTER", to: "NEXT_PERIOD" },
-      { from: "NEXT_PERIOD", to: "CURRENT_PERIOD" },
-      { from: "CURRENT_PERIOD", to: "CLOSED_PERIOD" },
-    ];
-
-    try {
-      // Update existing periods
-      const updatePromises = periodShifts.map(async ({ from, to }) => {
-        const period = periodsToShift.find((p) => p.period_type === from);
-        if (!period) return;
-
-        const response = await fetch(`/api/pay-periods/${period.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...period,
-            period_type: to,
-          }),
-        });
-
-        if (!response.ok)
-          throw new Error(`Failed to update period from ${from} to ${to}`);
-      });
-
-      await Promise.all(updatePromises);
-      await fetchPayPeriods(); // Refresh the periods after successful shift
-    } catch (error) {
-      console.error("Error shifting periods:", error);
-      throw error;
-    }
-  };
-
   const handleAddPeriod = async () => {
     if (isAnimating) return;
 
     try {
-      setIsAddingNewPeriod(true);
-
       // 1. Prepare Animation Data:
       // Create a "New Future" period object locally for animation purposes
 
@@ -136,30 +93,29 @@ export function PayPeriodManager() {
       setTempPeriods([...activePeriods, tempNewPeriod]);
       setIsAnimating(true);
 
-      // 2. Perform Backend Operations
-
-      // Shift periods before adding a new one
-      await shiftPeriods();
-
-      // Create new FUTURE_PERIOD
-      const response = await fetch("/api/pay-periods", {
+      // 2. Perform Backend Operations: one atomic call that shifts period
+      // types, creates the new FUTURE_PERIOD, and materializes recurring
+      // item instances for the new horizon.
+      const response = await fetch("/api/pay-periods/cascade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Use ISO string for API if needed, or format. The original used formatDateForDisplay(newStartDate)
         body: JSON.stringify({
-          period_type: "FUTURE_PERIOD",
-          start_date: formatDateForDisplay(newStartDate),
-          salary_amount: newSalary,
+          force: true,
+          newPeriod: {
+            start_date: formatDateForDisplay(newStartDate),
+            salary_amount: newSalary,
+          },
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to create period");
+      if (!response.ok) throw new Error("Failed to add period");
 
       // 3. Wait for Animation to finish visually
       // CSS transition is set to 500ms
       await new Promise(resolve => setTimeout(resolve, 600));
 
-      await fetchPayPeriods();
+      // Entries must refresh too: materialization just created rows.
+      await Promise.all([fetchPayPeriods(), fetchEntries()]);
 
       // Reset animation state
       setIsAnimating(false);
@@ -169,18 +125,11 @@ export function PayPeriodManager() {
       console.error("Error adding period:", error);
       setError(error instanceof Error ? error.message : "An error occurred");
       setIsAnimating(false);
-    } finally {
-      setIsAddingNewPeriod(false);
     }
   };
 
   const handleSubmit = async (period: Partial<PayPeriod>) => {
     try {
-      if (isAddingNewPeriod) {
-        // Shift periods before adding a new one
-        await shiftPeriods();
-      }
-
       if (period.id) {
         // Handling update of existing period
         const response = await fetch(`/api/pay-periods/${period.id}`, {
@@ -211,7 +160,6 @@ export function PayPeriodManager() {
     setShowForm(false);
     setSelectedPeriod(null);
     setSelectedPeriodType(PERIOD_TYPES[0]);
-    setIsAddingNewPeriod(false);
   };
 
   // Determine what to render
@@ -305,7 +253,6 @@ export function PayPeriodManager() {
                           setSelectedPeriod(null);
                           setSelectedPeriodType(orderedTypes[index]);
                           setShowForm(true);
-                          setIsAddingNewPeriod(false);
                         }}
                         className="text-sm text-blue-600 hover:text-blue-800"
                       >

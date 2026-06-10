@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Pencil, Trash2, CheckCircle } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  CheckCircle,
+  Repeat,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { DailyBalanceCheck } from "./DailyBalanceCheck";
 import { BudgetEntryForm } from "./BudgetEntryForm";
+import { MarkPaidDialog } from "./MarkPaidDialog";
 import {
-  addMonthsToDateString,
   formatDateForAPI,
   formatDateForDisplay,
+  getTodayInUTC,
 } from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
@@ -33,7 +41,12 @@ export function BudgetView() {
   
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<BudgetEntry | null>(null);
+  const [markingPaidEntry, setMarkingPaidEntry] = useState<BudgetEntry | null>(null);
+  const [showPaidSection, setShowPaidSection] = useState(false);
   const [showDailyBalanceModal, setShowDailyBalanceModal] = useState(false);
+
+  const unpaidEntries = entries.filter((entry) => !entry.paid_at);
+  const paidEntries = entries.filter((entry) => entry.paid_at);
 
   const handleAddEntry = async (entry: Entry) => {
     try {
@@ -98,19 +111,101 @@ export function BudgetView() {
     }
   };
 
-  const handleMarkAsPaid = async (entry: BudgetEntry) => {
-    const nextDueDate = addMonthsToDateString(entry.due_date, 1);
+  const handleSetPaid = async (
+    entry: BudgetEntry,
+    paidAt: string | null,
+    actualAmount: number | null
+  ) => {
+    const response = await fetch(`/api/budget-entries/${entry.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid_at: paidAt, actual_amount: actualAmount }),
+    });
+    if (!response.ok) throw new Error("Failed to update entry");
+    const updatedEntry = await response.json();
+    updateEntry(entry.id, {
+      ...updatedEntry,
+      amount: Number(updatedEntry.amount),
+      actual_amount:
+        updatedEntry.actual_amount === null
+          ? null
+          : Number(updatedEntry.actual_amount),
+    });
+  };
 
+  const handleUnmarkPaid = async (entry: BudgetEntry) => {
     try {
-      await handleUpdateEntry(entry.id, {
-        name: entry.name,
-        amount: entry.amount,
-        due_date: nextDueDate,
-      });
+      await handleSetPaid(entry, null, null);
     } catch (err) {
-      console.error("Error marking entry as paid:", err);
+      console.error("Error unmarking entry as paid:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     }
+  };
+
+  const renderEntryRow = (entry: BudgetEntry) => {
+    const isPaid = entry.paid_at !== null;
+    return (
+      <tr
+        key={entry.id}
+        className={`hover:bg-gray-50 ${isPaid ? "text-gray-400" : ""}`}
+      >
+        <td className={`p-3 ${isPaid ? "line-through" : ""}`}>
+          <span className="flex items-center gap-1.5">
+            {entry.name}
+            {entry.source_recurring_id && (
+              <Repeat
+                className="h-4 w-4 text-gray-400 shrink-0"
+                aria-label="Created by recurring item"
+              />
+            )}
+          </span>
+        </td>
+        <td className="p-3">
+          ${Number(entry.actual_amount ?? entry.amount).toFixed(2)}
+          {isPaid &&
+            entry.actual_amount !== null &&
+            entry.actual_amount !== entry.amount && (
+              <span className="text-xs ml-1">
+                (budgeted ${Number(entry.amount).toFixed(2)})
+              </span>
+            )}
+        </td>
+        <td className="p-3">{formatDateForDisplay(entry.due_date)}</td>
+        <td className="p-3 text-right space-x-2">
+          <button
+            onClick={() => setEditingEntry(entry)}
+            className="text-blue-600 hover:text-blue-800 p-1"
+            title={entry.source_recurring_id ? "Edit this occurrence" : "Edit"}
+          >
+            <Pencil className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => handleDeleteEntry(entry.id)}
+            className="text-red-600 hover:text-red-800 p-1"
+            title="Delete"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+          {isPaid ? (
+            <button
+              onClick={() => handleUnmarkPaid(entry)}
+              className="text-green-600 hover:text-green-800 p-1"
+              title="Mark as Unpaid"
+            >
+              <CheckCircle className="w-5 h-5 fill-green-100" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setMarkingPaidEntry(entry)}
+              className="text-gray-400 hover:text-green-700 p-1"
+              title="Mark as Paid"
+            >
+              <CheckCircle className="w-5 h-5" />
+            </button>
+          )}
+        </td>
+      </tr>
+    );
   };
 
   return (
@@ -176,40 +271,27 @@ export function BudgetView() {
                     </td>
                   </tr>
                 ) : (
-                  entries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      <td className="p-3">{entry.name}</td>
-                      <td className="p-3">
-                        ${Number(entry.amount).toFixed(2)}
-                      </td>
-                      <td className="p-3">
-                        {formatDateForDisplay(entry.due_date)}
-                      </td>
-                      <td className="p-3 text-right space-x-2">
-                        <button
-                          onClick={() => setEditingEntry(entry)}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                          title="Edit"
-                        >
-                          <Pencil className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteEntry(entry.id)}
-                          className="text-red-600 hover:text-red-800 p-1"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleMarkAsPaid(entry)}
-                          className="text-green-600 hover:text-green-800 p-1"
-                          title="Mark as Paid"
-                        >
-                          <CheckCircle className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  <>
+                    {unpaidEntries.map(renderEntryRow)}
+                    {paidEntries.length > 0 && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={4} className="p-2">
+                          <button
+                            onClick={() => setShowPaidSection(!showPaidSection)}
+                            className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700"
+                          >
+                            {showPaidSection ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
+                            Paid ({paidEntries.length})
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                    {showPaidSection && paidEntries.map(renderEntryRow)}
+                  </>
                 )}
               </tbody>
             </table>
@@ -237,6 +319,20 @@ export function BudgetView() {
                   date: editingEntry.due_date,
                 }
               : undefined
+          }
+        />
+      )}
+
+      {markingPaidEntry && (
+        <MarkPaidDialog
+          entry={markingPaidEntry}
+          onClose={() => setMarkingPaidEntry(null)}
+          onConfirm={(actualAmount) =>
+            handleSetPaid(
+              markingPaidEntry,
+              formatDateForAPI(getTodayInUTC()),
+              actualAmount
+            )
           }
         />
       )}

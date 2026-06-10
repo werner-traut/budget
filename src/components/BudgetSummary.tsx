@@ -4,26 +4,16 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Repeat } from "lucide-react";
 import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 import {
   calculateMonthlyBudgetOverview,
+  calculatePeriodSummaries,
   sumMonthToDateAdhocSavings,
 } from "@/lib/utils/budget-calculations";
 import { useBudgetStore } from "@/store/useBudgetStore";
-import type { BudgetEntry } from "@/types/budget";
 import type { BalanceHistory } from "@/types/balanceHistory";
 import type { PayPeriod } from "@/types/periods";
-
-interface PeriodSummary {
-  entries: BudgetEntry[];
-  totalExpenses: number;
-  periodStart: string;
-  periodEnd: string | null;
-  salary_amount: number;
-  adhocTotal: number;
-  daysInPeriod: number;
-  remaining: number;
-}
 
 export function BudgetSummary() {
   const { 
@@ -112,72 +102,13 @@ export function BudgetSummary() {
   }, [entries, incomePayPeriods, adhocSettings.daily_amount]);
 
   const periods = useMemo(() => {
-    if (!payPeriods.length) return {};
-
-    const today = getTodayInUTC();
-
-    let previousRemaining = Number(dailyBalance) ? Number(dailyBalance) : 0;
-
-    return payPeriods.reduce((acc, period, index) => {
-      const nextPeriod = payPeriods[index + 1];
-      const periodStart = new Date(period.start_date);
-      const periodEnd = nextPeriod ? new Date(nextPeriod.start_date) : null;
-
-      // Get entries for this period
-      const periodEntries = entries.filter((entry) => {
-        const entryDate = new Date(entry.due_date);
-        if (!periodEnd) return entryDate >= periodStart;
-        return entryDate >= periodStart && entryDate < periodEnd;
-      });
-
-      // Calculate total expenses
-      const totalExpenses = periodEntries.reduce(
-        (sum, entry) => sum + entry.amount,
-        0
-      );
-
-      // Calculate adhoc days and total
-      let daysInPeriod;
-      if (period.period_type === "CURRENT_PERIOD") {
-        daysInPeriod = periodEnd
-          ? Math.max(
-              0,
-              Math.ceil(
-                (periodEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-              )
-            )
-          : 0;
-      } else {
-        daysInPeriod = periodEnd
-          ? Math.ceil(
-              (periodEnd.getTime() - periodStart.getTime()) /
-                (1000 * 60 * 60 * 24)
-            )
-          : 0;
-      }
-
-      const adhocTotal = daysInPeriod * adhocSettings.daily_amount;
-
-      // Calculate remaining
-      const payAmount =
-        period.period_type === "CURRENT_PERIOD" ? 0 : period.salary_amount;
-      const remaining =
-        previousRemaining + payAmount - totalExpenses - adhocTotal;
-      previousRemaining = remaining;
-
-      acc[period.period_type] = {
-        entries: periodEntries,
-        totalExpenses,
-        periodStart: period.start_date,
-        periodEnd: nextPeriod?.start_date || null,
-        salary_amount: payAmount,
-        adhocTotal,
-        daysInPeriod,
-        remaining,
-      };
-
-      return acc;
-    }, {} as Record<string, PeriodSummary>);
+    return calculatePeriodSummaries(
+      entries,
+      payPeriods,
+      adhocSettings.daily_amount,
+      dailyBalance,
+      getTodayInUTC()
+    );
   }, [entries, payPeriods, adhocSettings.daily_amount, dailyBalance]);
 
   useEffect(() => {
@@ -410,13 +341,25 @@ export function BudgetSummary() {
                       period.entries.map((entry) => (
                         <div
                           key={entry.id}
-                          className="grid grid-cols-[1fr_auto_auto] gap-2"
+                          className={`grid grid-cols-[1fr_auto_auto] gap-2 ${
+                            entry.paid_at ? "text-gray-400 line-through" : ""
+                          }`}
                         >
-                          <span>{entry.name}</span>
+                          <span className="flex items-center gap-1">
+                            {entry.name}
+                            {entry.source_recurring_id && (
+                              <Repeat
+                                className="h-3 w-3 text-gray-400 shrink-0"
+                                aria-label="Created by recurring item"
+                              />
+                            )}
+                          </span>
                           <span className="text-gray-500 text-sm">
                             {formatDateForDisplay(entry.due_date)}
                           </span>
-                          <span>${Number(entry.amount).toFixed(2)}</span>
+                          <span>
+                            ${Number(entry.actual_amount ?? entry.amount).toFixed(2)}
+                          </span>
                         </div>
                       ))
                     ) : (

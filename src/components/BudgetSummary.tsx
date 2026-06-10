@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 import {
-  calculateMonthToDateAdhocSavings,
   calculateMonthlyBudgetOverview,
-  createAdhocSavingsConsoleLogger,
+  sumMonthToDateAdhocSavings,
 } from "@/lib/utils/budget-calculations";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
@@ -26,11 +25,6 @@ interface PeriodSummary {
   remaining: number;
 }
 
-const monthlySavingsLogger =
-  process.env.NEXT_PUBLIC_LOG_BUDGET_CALCULATIONS === "true"
-    ? createAdhocSavingsConsoleLogger("summary-monthly-savings")
-    : undefined;
-
 export function BudgetSummary() {
   const { 
     entries, 
@@ -43,22 +37,31 @@ export function BudgetSummary() {
   
   const [isEditingAdhoc, setIsEditingAdhoc] = useState(false);
   const [newDailyAmount, setNewDailyAmount] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
   const [monthlyHistory, setMonthlyHistory] = useState<BalanceHistory[]>([]);
   const [monthlyPayPeriods, setMonthlyPayPeriods] = useState<
     PayPeriod[] | null
   >(null);
 
-  useEffect(() => {
+  const fetchMonthlyHistory = useCallback(async () => {
     const today = getTodayInUTC();
     const startOfMonth = new Date(
       Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)
     );
     const startDateStr = startOfMonth.toISOString().split("T")[0];
-    fetch(`/api/balance-history?startDate=${startDateStr}`)
-      .then((r) => r.ok ? r.json() : [])
-      .then(setMonthlyHistory)
-      .catch(() => {});
+    try {
+      const response = await fetch(
+        `/api/balance-history?startDate=${startDateStr}`
+      );
+      if (response.ok) setMonthlyHistory(await response.json());
+    } catch {
+      // Non-fatal: the month-to-date card simply stays hidden.
+    }
   }, []);
+
+  useEffect(() => {
+    fetchMonthlyHistory();
+  }, [fetchMonthlyHistory]);
 
   useEffect(() => {
     const today = getTodayInUTC();
@@ -95,15 +98,8 @@ export function BudgetSummary() {
 
   const monthlySavings = useMemo(() => {
     const today = getTodayInUTC();
-    return calculateMonthToDateAdhocSavings(
-      monthlyHistory,
-      entries,
-      incomePayPeriods,
-      adhocSettings.daily_amount,
-      today,
-      { logger: monthlySavingsLogger }
-    );
-  }, [monthlyHistory, entries, incomePayPeriods, adhocSettings.daily_amount]);
+    return sumMonthToDateAdhocSavings(monthlyHistory, today);
+  }, [monthlyHistory]);
 
   const monthlyOverview = useMemo(() => {
     const today = getTodayInUTC();
@@ -203,13 +199,32 @@ export function BudgetSummary() {
             dailyExpenses: adhocSettings.daily_amount,
           }),
         });
+        // The server computes the adhoc variance for today's snapshot, so
+        // refresh the month's history to reflect it in the card.
+        await fetchMonthlyHistory();
       } catch (err) {
         console.error("Error saving balance history:", err);
       }
     };
 
     saveBalanceHistory();
-  }, [periods, dailyBalance, adhocSettings.daily_amount]);
+  }, [periods, dailyBalance, adhocSettings.daily_amount, fetchMonthlyHistory]);
+
+  const resetAdhocBaseline = async () => {
+    setIsResetting(true);
+    try {
+      const response = await fetch("/api/balance-history/reset", {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to reset adhoc savings");
+      await fetchMonthlyHistory();
+    } catch (err) {
+      console.error("Error resetting adhoc savings:", err);
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const updateAdhocAmount = async () => {
     try {
@@ -318,36 +333,57 @@ export function BudgetSummary() {
             </div>
           </div>
 
-          {monthlySavings !== null && (
-            <div className="mt-5 pt-5 border-t flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-gray-700">
-                  Month-to-date adhoc savings
-                </div>
+          <div className="mt-5 pt-5 border-t flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-gray-700">
+                Month-to-date adhoc savings
+              </div>
+              {monthlySavings !== null ? (
                 <div className="text-xs text-gray-400 mt-0.5">
-                  actual spend vs expected over {monthlySavings.trackedDays} tracked day
+                  actual spend vs budget over {monthlySavings.trackedDays} tracked day
                   {monthlySavings.trackedDays !== 1 ? "s" : ""}
                 </div>
-              </div>
-              <div className="text-right">
-                <div
-                  className={`text-2xl font-bold ${
-                    monthlySavings.cumulative >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {monthlySavings.cumulative >= 0 ? "+" : ""}
-                  ${Math.abs(monthlySavings.cumulative).toFixed(2)}
-                </div>
+              ) : (
                 <div className="text-xs text-gray-400 mt-0.5">
-                  {monthlySavings.cumulative >= 0
-                    ? "under budget"
-                    : "over budget"}
+                  no tracked snapshots yet this month
                 </div>
-              </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 h-7 px-2 text-xs"
+                onClick={resetAdhocBaseline}
+                disabled={isResetting}
+              >
+                {isResetting ? "Resetting…" : "Reset baseline"}
+              </Button>
             </div>
-          )}
+            <div className="text-right">
+              {monthlySavings !== null ? (
+                <>
+                  <div
+                    className={`text-2xl font-bold ${
+                      monthlySavings.cumulative >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {monthlySavings.cumulative >= 0 ? "+" : ""}
+                    ${Math.abs(monthlySavings.cumulative).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {monthlySavings.cumulative > 0
+                      ? "under budget"
+                      : monthlySavings.cumulative < 0
+                      ? "over budget"
+                      : "on budget"}
+                  </div>
+                </>
+              ) : (
+                <div className="text-2xl font-bold text-gray-300">—</div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

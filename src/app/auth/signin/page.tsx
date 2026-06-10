@@ -2,12 +2,23 @@
 
 import { signIn } from "next-auth/react";
 
+const devBypassEnabled =
+  process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
+
 export default function SignIn() {
   const handleGoogleSignIn = async () => {
     try {
       await signIn("google", { callbackUrl: "/" });
     } catch (error) {
       console.error("Sign in error:", error);
+    }
+  };
+
+  const handleDevSignIn = async () => {
+    try {
+      await signIn("dev-bypass", { callbackUrl: "/" });
+    } catch (error) {
+      console.error("Dev sign in error:", error);
     }
   };
 
@@ -43,6 +54,15 @@ export default function SignIn() {
           </svg>
           Sign in with Google
         </button>
+
+        {devBypassEnabled && (
+          <button
+            onClick={handleDevSignIn}
+            className="w-full bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-colors text-sm font-medium"
+          >
+            Dev sign in (bypass — local only)
+          </button>
+        )}
       </div>
     </div>
   );

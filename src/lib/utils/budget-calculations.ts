@@ -4,10 +4,7 @@ import type { PayPeriod } from "@/types/periods";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-export interface AdhocSavingsPoint {
-  cumulative: number;
-  trackedDays: number;
-}
+export type AdhocBudgetStatus = "under-budget" | "over-budget" | "on-budget";
 
 export interface MonthlyBudgetOverview {
   totalExpenses: number;
@@ -16,39 +13,17 @@ export interface MonthlyBudgetOverview {
   difference: number;
 }
 
-export interface AdhocSavingsCalculationLog {
-  previousDate: string;
-  currentDate: string;
-  daysGap: number;
-  previousBalance: number;
-  actualBalance: number;
-  salaryReceived: number;
-  expensesDue: number;
-  adhocBudget: number;
-  expectedBalance: number;
-  delta: number;
+export interface MonthToDateAdhocSavings {
   cumulative: number;
   trackedDays: number;
-  status: "under-budget" | "over-budget" | "on-budget";
-}
-
-export interface AdhocSavingsCalculationOptions {
-  logger?: (details: AdhocSavingsCalculationLog) => void;
-}
-
-export function createAdhocSavingsConsoleLogger(
-  label: string
-): AdhocSavingsCalculationOptions["logger"] {
-  return (details) => {
-    console.debug(`[budget-calculation:${label}]`, details);
-  };
+  status: AdhocBudgetStatus;
 }
 
 function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function getBudgetStatus(delta: number): AdhocSavingsCalculationLog["status"] {
+function getBudgetStatus(delta: number): AdhocBudgetStatus {
   if (delta > 0) return "under-budget";
   if (delta < 0) return "over-budget";
   return "on-budget";
@@ -86,23 +61,6 @@ function sumBudgetEntriesByProjectedDay(
     .reduce((sum, entry) => sum + Number(entry.amount), 0);
 }
 
-function sumPayPeriodsBetweenDates(
-  payPeriods: PayPeriod[],
-  startDate: Date,
-  endDate: Date,
-  includeStart: boolean
-): number {
-  return payPeriods
-    .filter((period) => {
-      const periodStart = new Date(period.start_date);
-      return (
-        (includeStart ? periodStart >= startDate : periodStart > startDate) &&
-        periodStart <= endDate
-      );
-    })
-    .reduce((sum, period) => sum + Number(period.salary_amount), 0);
-}
-
 function sumPayPeriodsInUtcMonth(payPeriods: PayPeriod[], monthDate: Date): number {
   return payPeriods
     .filter((period) => {
@@ -112,6 +70,12 @@ function sumPayPeriodsInUtcMonth(payPeriods: PayPeriod[], monthDate: Date): numb
     .reduce((sum, period) => sum + Number(period.salary_amount), 0);
 }
 
+/**
+ * Static "plan" view of the current calendar month: what the full month is
+ * expected to cost (expenses + adhoc allowance) against expected income. This
+ * is intentionally a projection from the current budget configuration and is
+ * unrelated to recorded balance history.
+ */
 export function calculateMonthlyBudgetOverview(
   entries: BudgetEntry[],
   payPeriods: PayPeriod[],
@@ -137,161 +101,106 @@ export function calculateMonthlyBudgetOverview(
   };
 }
 
-export function calculateMonthToDateAdhocSavings(
-  history: BalanceHistory[],
-  entries: BudgetEntry[],
-  payPeriods: PayPeriod[],
-  dailyAmount: number,
-  today: Date,
-  options: AdhocSavingsCalculationOptions = {}
-): AdhocSavingsPoint | null {
-  const monthHistory = [...history]
-    .filter((entry) => {
-      const balanceDate = new Date(entry.balance_date);
-      return balanceDate <= today && isSameUtcMonth(balanceDate, today);
-    })
-    .sort(
-      (a, b) =>
-        new Date(a.balance_date).getTime() - new Date(b.balance_date).getTime()
-    );
+export interface AdhocSnapshotInput {
+  /** Bank balance recorded on the previous tracked snapshot. */
+  previousBalance: number;
+  /** Cumulative savings carried forward from the previous tracked snapshot. */
+  previousCumulative: number;
+  /** Bank balance recorded on the snapshot being computed. */
+  actualBalance: number;
+  /** Salary received in the window (previousDate, currentDate]. */
+  salaryReceived: number;
+  /** Budgeted expenses due in the window (previousDate, currentDate]. */
+  expensesDue: number;
+  /** Whole days between the previous snapshot and this one. */
+  daysGap: number;
+  /** Daily adhoc allowance in effect for this window. */
+  dailyAmount: number;
+}
 
-  if (!monthHistory.length) return null;
+export interface AdhocSnapshotResult {
+  delta: number;
+  cumulative: number;
+  adhocBudget: number;
+  expectedBalance: number;
+  status: AdhocBudgetStatus;
+}
 
-  const previous = monthHistory[0];
-  const current = monthHistory[monthHistory.length - 1];
-  const previousDate = new Date(previous.balance_date);
-  const currentDate = new Date(current.balance_date);
-  const startDay = previousDate.getUTCDate();
-  const currentDay = currentDate.getUTCDate();
-  const trackedDays = Math.max(0, currentDay - startDay + 1);
-
-  const salaryReceived = sumPayPeriodsBetweenDates(
-    payPeriods,
-    previousDate,
-    currentDate,
-    true
-  );
-  const expensesDue = sumBudgetEntriesByProjectedDay(
-    entries,
-    currentDate,
-    startDay,
-    currentDay
-  );
-  const previousBalance = Number(previous.bank_balance);
-  const actualBalance = Number(current.bank_balance);
-  const adhocBudget = trackedDays * Number(dailyAmount);
-  const expected = previousBalance + salaryReceived - expensesDue - adhocBudget;
-  const delta = actualBalance - expected;
-  const roundedDelta = roundCurrency(delta);
-
-  options.logger?.({
-    previousDate: previous.balance_date,
-    currentDate: current.balance_date,
-    daysGap: trackedDays,
-    previousBalance,
-    actualBalance,
-    salaryReceived: roundCurrency(salaryReceived),
-    expensesDue: roundCurrency(expensesDue),
-    adhocBudget: roundCurrency(adhocBudget),
-    expectedBalance: roundCurrency(expected),
-    delta: roundedDelta,
-    cumulative: roundedDelta,
-    trackedDays,
-    status: getBudgetStatus(roundedDelta),
-  });
+/**
+ * Pure computation of a single balance snapshot's adhoc variance.
+ *
+ * The snapshot's "expected" balance is the previous balance plus salary, minus
+ * budgeted expenses and the adhoc allowance accrued over the gap. The delta is
+ * how the actual balance compares (positive = under budget / saved money), and
+ * cumulative chains that onto the previous running total.
+ *
+ * This is computed once at write time and frozen, so later edits to entries,
+ * pay periods, or the daily amount cannot rewrite historical variance.
+ */
+export function computeAdhocSnapshot(
+  input: AdhocSnapshotInput
+): AdhocSnapshotResult {
+  const adhocBudget = Math.max(0, input.daysGap) * Number(input.dailyAmount);
+  const expectedBalance =
+    input.previousBalance +
+    input.salaryReceived -
+    input.expensesDue -
+    adhocBudget;
+  const delta = input.actualBalance - expectedBalance;
+  const cumulative = input.previousCumulative + delta;
 
   return {
-    cumulative: roundedDelta,
-    trackedDays,
+    delta: roundCurrency(delta),
+    cumulative: roundCurrency(cumulative),
+    adhocBudget: roundCurrency(adhocBudget),
+    expectedBalance: roundCurrency(expectedBalance),
+    status: getBudgetStatus(roundCurrency(delta)),
   };
 }
 
-export function calculateAdhocSavingsTimeline(
-  history: BalanceHistory[],
-  entries: BudgetEntry[],
-  payPeriods: PayPeriod[],
-  dailyAmount: number,
-  options: AdhocSavingsCalculationOptions = {}
-): AdhocSavingsPoint[] {
-  let cumulative = 0;
-  let trackedDays = 0;
-
-  return history.map((entry, index) => {
-    if (index > 0) {
-      const previous = history[index - 1];
-      const previousDate = new Date(previous.balance_date);
-      const currentDate = new Date(entry.balance_date);
-      const daysGap = Math.round(
-        (currentDate.getTime() - previousDate.getTime()) / MS_PER_DAY
-      );
-
-      const salaryReceived = sumPayPeriodsBetweenDates(
-        payPeriods,
-        previousDate,
-        currentDate,
-        false
-      );
-
-      const expensesDue = entries
-        .filter((budgetEntry) => {
-          const dueDate = new Date(budgetEntry.due_date);
-          return dueDate > previousDate && dueDate <= currentDate;
-        })
-        .reduce((sum, budgetEntry) => sum + Number(budgetEntry.amount), 0);
-
-      const previousBalance = Number(previous.bank_balance);
-      const actualBalance = Number(entry.bank_balance);
-      const adhocBudget = daysGap * Number(dailyAmount);
-      const expected =
-        previousBalance +
-        salaryReceived -
-        expensesDue -
-        adhocBudget;
-      const delta = actualBalance - expected;
-
-      cumulative += delta;
-      trackedDays += daysGap;
-
-      options.logger?.({
-        previousDate: previous.balance_date,
-        currentDate: entry.balance_date,
-        daysGap,
-        previousBalance,
-        actualBalance,
-        salaryReceived: roundCurrency(salaryReceived),
-        expensesDue: roundCurrency(expensesDue),
-        adhocBudget: roundCurrency(adhocBudget),
-        expectedBalance: roundCurrency(expected),
-        delta: roundCurrency(delta),
-        cumulative: roundCurrency(cumulative),
-        trackedDays,
-        status: getBudgetStatus(roundCurrency(delta)),
-      });
-    }
-
-    return {
-      cumulative: roundCurrency(cumulative),
-      trackedDays,
-    };
-  });
+/** Whole-day gap between two UTC date-only values. */
+export function getDaysBetween(previous: string | Date, current: string | Date): number {
+  const previousTime = new Date(previous).getTime();
+  const currentTime = new Date(current).getTime();
+  return Math.round((currentTime - previousTime) / MS_PER_DAY);
 }
 
-export function calculateAdhocSavings(
-  history: BalanceHistory[],
-  entries: BudgetEntry[],
-  payPeriods: PayPeriod[],
-  dailyAmount: number,
-  options: AdhocSavingsCalculationOptions = {}
-): AdhocSavingsPoint | null {
-  if (history.length < 2) return null;
+/**
+ * Month-to-date adhoc savings derived from stored, immutable snapshot deltas.
+ * Sums the persisted `adhoc_delta` of every snapshot recorded in the current
+ * UTC month. Rows without a stored delta (recorded before tracking began, or
+ * baselines) contribute nothing. Returns null when the month has no data yet.
+ */
+export function sumMonthToDateAdhocSavings(
+  history: Pick<BalanceHistory, "balance_date" | "adhoc_delta">[],
+  today: Date
+): MonthToDateAdhocSavings | null {
+  const monthRows = history.filter((row) => {
+    const balanceDate = new Date(row.balance_date);
+    return (
+      row.adhoc_delta !== null &&
+      row.adhoc_delta !== undefined &&
+      balanceDate <= today &&
+      isSameUtcMonth(balanceDate, today)
+    );
+  });
 
-  const timeline = calculateAdhocSavingsTimeline(
-    history,
-    entries,
-    payPeriods,
-    dailyAmount,
-    options
+  if (!monthRows.length) return null;
+
+  const cumulative = monthRows.reduce(
+    (sum, row) => sum + Number(row.adhoc_delta),
+    0
   );
 
-  return timeline[timeline.length - 1] ?? null;
+  const dates = monthRows
+    .map((row) => new Date(row.balance_date).getTime())
+    .sort((a, b) => a - b);
+  const trackedDays = getDaysBetween(new Date(dates[0]), new Date(dates[dates.length - 1])) + 1;
+
+  const rounded = roundCurrency(cumulative);
+  return {
+    cumulative: rounded,
+    trackedDays,
+    status: getBudgetStatus(rounded),
+  };
 }

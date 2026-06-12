@@ -46,7 +46,19 @@ export function BudgetView() {
   const [showDailyBalanceModal, setShowDailyBalanceModal] = useState(false);
 
   const unpaidEntries = entries.filter((entry) => !entry.paid_at);
-  const paidEntries = entries.filter((entry) => entry.paid_at);
+  // Paid entries due before the current month are kept in the database (the
+  // monthly overview still reads them) but hidden here so the Paid section
+  // doesn't grow indefinitely as recurring instances are paid off.
+  const today = getTodayInUTC();
+  const currentMonthStart = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    1
+  );
+  const paidEntries = entries.filter(
+    (entry) =>
+      entry.paid_at && new Date(entry.due_date).getTime() >= currentMonthStart
+  );
 
   const handleAddEntry = async (entry: Entry) => {
     try {

@@ -159,41 +159,45 @@ export function BudgetView() {
     return (
       <tr
         key={entry.id}
-        className={`hover:bg-gray-50 ${isPaid ? "text-gray-400" : ""}`}
+        className={`transition-colors hover:bg-accent/50 ${
+          isPaid ? "text-muted-foreground/60" : ""
+        }`}
       >
-        <td className={`p-3 ${isPaid ? "line-through" : ""}`}>
+        <td className={`p-3 ${isPaid ? "line-through decoration-foreground/40" : ""}`}>
           <span className="flex items-center gap-1.5">
             {entry.name}
             {entry.source_recurring_id && (
               <Repeat
-                className="h-4 w-4 text-gray-400 shrink-0"
+                className="h-4 w-4 text-muted-foreground/60 shrink-0"
                 aria-label="Created by recurring item"
               />
             )}
           </span>
         </td>
-        <td className="p-3">
+        <td className="p-3 font-mono tabular-nums">
           ${Number(entry.actual_amount ?? entry.amount).toFixed(2)}
           {isPaid &&
             entry.actual_amount !== null &&
             entry.actual_amount !== entry.amount && (
-              <span className="text-xs ml-1">
+              <span className="text-xs ml-1 text-muted-foreground">
                 (budgeted ${Number(entry.amount).toFixed(2)})
               </span>
             )}
         </td>
-        <td className="p-3">{formatDateForDisplay(entry.due_date)}</td>
+        <td className="p-3 font-mono text-sm tabular-nums">
+          {formatDateForDisplay(entry.due_date)}
+        </td>
         <td className="p-3 text-right space-x-2">
           <button
             onClick={() => setEditingEntry(entry)}
-            className="text-blue-600 hover:text-blue-800 p-1"
+            className="text-muted-foreground hover:text-primary p-1 transition-colors"
             title={entry.source_recurring_id ? "Edit this occurrence" : "Edit"}
           >
             <Pencil className="w-5 h-5" />
           </button>
           <button
             onClick={() => handleDeleteEntry(entry.id)}
-            className="text-red-600 hover:text-red-800 p-1"
+            className="text-muted-foreground hover:text-destructive p-1 transition-colors"
             title="Delete"
           >
             <Trash2 className="w-5 h-5" />
@@ -201,15 +205,15 @@ export function BudgetView() {
           {isPaid ? (
             <button
               onClick={() => handleUnmarkPaid(entry)}
-              className="text-green-600 hover:text-green-800 p-1"
+              className="text-positive hover:text-positive/70 p-1 transition-colors"
               title="Mark as Unpaid"
             >
-              <CheckCircle className="w-5 h-5 fill-green-100" />
+              <CheckCircle className="w-5 h-5 fill-accent" />
             </button>
           ) : (
             <button
               onClick={() => setMarkingPaidEntry(entry)}
-              className="text-gray-400 hover:text-green-700 p-1"
+              className="text-muted-foreground/60 hover:text-positive p-1 transition-colors"
               title="Mark as Paid"
             >
               <CheckCircle className="w-5 h-5" />
@@ -230,12 +234,18 @@ export function BudgetView() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Today&apos;s Balance</p>
-              <p className="text-2xl font-bold">
-                {dailyBalance !== null
-                  ? `$${Number(dailyBalance).toFixed(2)}`
-                  : "Not checked today"}
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                Today&apos;s Balance
               </p>
+              {dailyBalance !== null ? (
+                <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-primary">
+                  ${Number(dailyBalance).toFixed(2)}
+                </p>
+              ) : (
+                <p className="mt-1 font-display text-2xl italic text-muted-foreground">
+                  Not checked today
+                </p>
+              )}
             </div>
             {dailyBalance === null ? (
               <DailyBalanceCheck onDailyBalanceChange={setDailyBalance} />
@@ -259,26 +269,26 @@ export function BudgetView() {
           <CardTitle>Budget Entries</CardTitle>
           <button
             onClick={() => setShowEntryForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             Add Entry
           </button>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg overflow-hidden">
+          <div className="overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b">
-                  <th className="text-left p-3 font-medium">Name</th>
-                  <th className="text-left p-3 font-medium">Amount</th>
-                  <th className="text-left p-3 font-medium">Due Date</th>
-                  <th className="text-right p-3 font-medium">Actions</th>
+                <tr className="border-b-2 border-foreground/60">
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Name</th>
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Amount</th>
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Due Date</th>
+                  <th className="p-3 text-right font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-border/70">
                 {entries.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-4 text-center text-gray-500">
+                    <td colSpan={4} className="p-6 text-center font-display italic text-muted-foreground">
                       No budget entries found
                     </td>
                   </tr>
@@ -286,11 +296,11 @@ export function BudgetView() {
                   <>
                     {unpaidEntries.map(renderEntryRow)}
                     {paidEntries.length > 0 && (
-                      <tr className="bg-gray-50">
+                      <tr className="bg-secondary/50">
                         <td colSpan={4} className="p-2">
                           <button
                             onClick={() => setShowPaidSection(!showPaidSection)}
-                            className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700"
+                            className="flex items-center gap-1 font-mono text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
                           >
                             {showPaidSection ? (
                               <ChevronDown className="w-4 h-4" />

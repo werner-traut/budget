@@ -43,15 +43,15 @@ export function MarkPaidDialog({ entry, onClose, onConfirm }: MarkPaidDialogProp
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-foreground/40 backdrop-blur-[2px] flex items-center justify-center z-50 animate-in fade-in duration-200">
+      <Card className="w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
         <CardHeader className="relative">
           <CardTitle className="text-xl font-semibold">
             Mark &ldquo;{entry.name}&rdquo; as Paid
           </CardTitle>
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+            className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
           >
             <XCircle className="w-6 h-6" />
           </button>
@@ -59,7 +59,7 @@ export function MarkPaidDialog({ entry, onClose, onConfirm }: MarkPaidDialogProp
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1.5">
                 Amount actually paid
               </label>
               <input
@@ -69,18 +69,18 @@ export function MarkPaidDialog({ entry, onClose, onConfirm }: MarkPaidDialogProp
                 min="0"
                 value={actualAmount}
                 onChange={(e) => setActualAmount(e.target.value)}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-md border border-input bg-background p-2 font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-ring focus:border-ring"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="font-mono text-xs tabular-nums text-muted-foreground mt-1">
                 Budgeted: ${Number(entry.amount).toFixed(2)}
               </p>
             </div>
-            {error && <div className="text-sm text-red-600">{error}</div>}
+            {error && <div className="text-sm text-destructive">{error}</div>}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-md bg-positive py-2 px-4 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-positive/90 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Saving..." : "Mark as Paid"}
             </button>

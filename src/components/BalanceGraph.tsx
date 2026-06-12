@@ -59,14 +59,21 @@ interface CustomTooltipProps
   label?: string;
 }
 
+/* Ledger palette: ink green, sage, ink blue, oxide red, ochre. */
 const LINE_CONFIG = [
-  { key: "Bank Balance",               color: "#6366f1" },
-  { key: "Trend",                      color: "#94a3b8", label: "Trend (Bank Balance)" },
-  { key: "Current Period End Balance", color: "#22c55e" },
-  { key: "Next Period End Balance",    color: "#eab308" },
-  { key: "Period After End Balance",   color: "#ef4444" },
-  { key: "Adhoc Savings",              color: "#f59e0b" },
+  { key: "Bank Balance",               color: "#1d5c4a" },
+  { key: "Trend",                      color: "#a39a8a", label: "Trend (Bank Balance)" },
+  { key: "Current Period End Balance", color: "#5b8a72" },
+  { key: "Next Period End Balance",    color: "#4a6fa5" },
+  { key: "Period After End Balance",   color: "#b3402e" },
+  { key: "Adhoc Savings",              color: "#b97e16" },
 ] as const;
+
+const AXIS_TICK = {
+  fill: "#6f6759",
+  fontSize: 11,
+  fontFamily: "var(--font-plex-mono), monospace",
+};
 
 type LineKey = (typeof LINE_CONFIG)[number]["key"];
 
@@ -119,8 +126,11 @@ function BalanceGraph() {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <CardContent className="flex flex-col items-center justify-center gap-3 h-96">
+          <div className="font-display italic text-muted-foreground">
+            Drawing the lines&hellip;
+          </div>
+          <div className="h-px w-24 bg-foreground/30 animate-pulse" />
         </CardContent>
       </Card>
     );
@@ -130,7 +140,7 @@ function BalanceGraph() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-96">
-          <div className="text-red-600">Error: {error}</div>
+          <div className="font-mono text-sm text-destructive">Error: {error}</div>
         </CardContent>
       </Card>
     );
@@ -197,10 +207,16 @@ function BalanceGraph() {
   const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border rounded shadow-sm">
-          <p className="font-bold">{label}</p>
+        <div className="rounded-md border border-border bg-card p-4 shadow-md">
+          <p className="mb-1 font-mono text-xs font-semibold uppercase tracking-[0.12em]">
+            {label}
+          </p>
           {payload.map((entry: CustomTooltipPayloadItem) => (
-            <p key={entry.name} style={{ color: entry.color }}>
+            <p
+              key={entry.name}
+              className="font-mono text-xs tabular-nums"
+              style={{ color: entry.color }}
+            >
               {entry.name}: ${entry.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
           ))}
@@ -261,7 +277,7 @@ function BalanceGraph() {
         {/* Line visibility toggles */}
         <div className="flex flex-wrap gap-x-4 gap-y-1 pb-1">
           {LINE_CONFIG.map((cfg) => (
-            <label key={cfg.key} className="flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700">
+            <label key={cfg.key} className="flex items-center gap-1.5 cursor-pointer select-none font-mono text-xs text-foreground/80">
               <input
                 type="checkbox"
                 checked={visibleLines[cfg.key]}
@@ -296,32 +312,36 @@ function BalanceGraph() {
             initialDimension={{ width: 800, height: 300 }}
           >
             <LineChart data={data} margin={chartMargin}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#aca390" opacity={0.35} />
               <XAxis
                 dataKey="date"
                 angle={-45}
                 textAnchor="end"
                 height={80}
-                tick={{ fill: "#666", fontSize: 12 }}
+                tick={AXIS_TICK}
                 tickMargin={20}
               />
               <YAxis
                 domain={[minValue - padding, maxValue + padding]}
                 tickFormatter={(value) => `$${value.toLocaleString()}`}
-                tick={{ fill: "#666", fontSize: 12 }}
+                tick={AXIS_TICK}
                 width={80}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 verticalAlign="top"
                 height={36}
-                wrapperStyle={{ paddingTop: "20px" }}
+                wrapperStyle={{
+                  paddingTop: "20px",
+                  fontFamily: "var(--font-plex-mono), monospace",
+                  fontSize: "11px",
+                }}
               />
               {visibleLines["Bank Balance"] && (
                 <Line
                   type="monotone"
                   dataKey="Bank Balance"
-                  stroke="#6366f1"
+                  stroke={LINE_CONFIG[0].color}
                   dot={false}
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
@@ -331,7 +351,7 @@ function BalanceGraph() {
                 <Line
                   type="monotone"
                   dataKey="Trend"
-                  stroke="#94a3b8"
+                  stroke={LINE_CONFIG[1].color}
                   strokeDasharray="5 5"
                   dot={false}
                   strokeWidth={2}
@@ -343,7 +363,7 @@ function BalanceGraph() {
                 <Line
                   type="monotone"
                   dataKey="Current Period End Balance"
-                  stroke="#22c55e"
+                  stroke={LINE_CONFIG[2].color}
                   dot={false}
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
@@ -353,7 +373,7 @@ function BalanceGraph() {
                 <Line
                   type="monotone"
                   dataKey="Next Period End Balance"
-                  stroke="#eab308"
+                  stroke={LINE_CONFIG[3].color}
                   dot={false}
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
@@ -363,7 +383,7 @@ function BalanceGraph() {
                 <Line
                   type="monotone"
                   dataKey="Period After End Balance"
-                  stroke="#ef4444"
+                  stroke={LINE_CONFIG[4].color}
                   dot={false}
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
@@ -375,15 +395,15 @@ function BalanceGraph() {
 
         {/* Adhoc savings chart */}
         {visibleLines["Adhoc Savings"] && <div className="border-t pt-2">
-          <p className="text-xs font-medium text-gray-500 pl-[72px] mb-1">
+          <p className="pl-[72px] mb-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             Cumulative Adhoc Savings
-            <span className="ml-2 text-gray-400 font-normal">
+            <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">
               (above 0 = under budget · below 0 = over budget)
             </span>
           </p>
           <div className="h-[180px] w-full">
             {!hasSavingsData ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+              <div className="flex h-full items-center justify-center font-display text-sm italic text-muted-foreground">
                 No adhoc savings tracked in this range yet.
               </div>
             ) : (
@@ -403,22 +423,22 @@ function BalanceGraph() {
                   >
                     <stop
                       offset={`${zeroOffset * 100}%`}
-                      stopColor="#22c55e"
+                      stopColor="#2e7d5b"
                       stopOpacity={0.25}
                     />
                     <stop
                       offset={`${zeroOffset * 100}%`}
-                      stopColor="#ef4444"
+                      stopColor="#b3402e"
                       stopOpacity={0.25}
                     />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#aca390" opacity={0.25} />
                 <XAxis dataKey="date" hide />
                 <YAxis
                   domain={[savingsDomainMin, savingsDomainMax]}
                   tickFormatter={(value) => `$${value.toLocaleString()}`}
-                  tick={{ fill: "#666", fontSize: 11 }}
+                  tick={AXIS_TICK}
                   width={80}
                 />
                 <Tooltip
@@ -428,14 +448,14 @@ function BalanceGraph() {
                   ]}
                   labelFormatter={() => ""}
                 />
-                <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} />
+                <ReferenceLine y={0} stroke="#8a8273" strokeWidth={1.5} />
                 <Area
                   type="monotone"
                   dataKey="Adhoc Savings"
-                  stroke="#f59e0b"
+                  stroke="#b97e16"
                   strokeWidth={2}
                   fill="url(#savingsGradient)"
-                  dot={{ r: 3, fill: "#f59e0b", strokeWidth: 0 }}
+                  dot={{ r: 3, fill: "#b97e16", strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
                   connectNulls={false}
                 />

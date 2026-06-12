@@ -30,8 +30,8 @@ export default function PayPeriodForm({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md">
+    <div className="fixed inset-0 bg-foreground/40 backdrop-blur-[2px] flex items-center justify-center z-50 animate-in fade-in duration-200">
+      <Card className="w-full max-w-md animate-in zoom-in-95 duration-200">
         <CardHeader>
           <CardTitle>
             {period ? "Edit Period" : `New ${periodType.replace("_", " ")}`}
@@ -47,12 +47,12 @@ export default function PayPeriodForm({
             />
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1.5">
                 Start Date
               </label>
               <input
                 type="date"
-                className="w-full p-2 border rounded"
+                className="w-full rounded-md border border-input bg-background p-2 font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-ring focus:border-ring"
                 value={formData.start_date}
                 onChange={(e) =>
                   setFormData({
@@ -64,13 +64,13 @@ export default function PayPeriodForm({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1.5">
                 Salary Amount
               </label>
               <input
                 type="number"
                 step="0.01"
-                className="w-full p-2 border rounded"
+                className="w-full rounded-md border border-input bg-background p-2 font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-ring focus:border-ring"
                 value={formData.salary_amount}
                 onChange={(e) =>
                   setFormData({
@@ -85,13 +85,13 @@ export default function PayPeriodForm({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
               >
                 Save
               </button>

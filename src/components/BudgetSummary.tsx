@@ -218,8 +218,11 @@ export function BudgetSummary() {
               </Button>
             </div>
           ) : (
-            <div className="text-2xl font-bold">
-              ${Number(adhocSettings.daily_amount).toFixed(2)}/day
+            <div className="font-mono text-2xl font-semibold tabular-nums">
+              ${Number(adhocSettings.daily_amount).toFixed(2)}
+              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                / day
+              </span>
             </div>
           )}
         </CardContent>
@@ -231,32 +234,40 @@ export function BudgetSummary() {
           <CardTitle className="text-lg">Monthly Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-4 sm:divide-x sm:divide-border/70">
             <div>
-              <div className="text-sm text-gray-500 mb-1">Total Expenses</div>
-              <div className="text-2xl font-bold">
+              <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Total Expenses
+              </div>
+              <div className="font-mono text-2xl font-semibold tabular-nums">
                 ${monthlyOverview.totalExpenses.toFixed(2)}
               </div>
             </div>
             <div>
-              <div className="text-sm text-gray-500 mb-1">Total Adhoc</div>
-              <div className="text-2xl font-bold">
+              <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Total Adhoc
+              </div>
+              <div className="font-mono text-2xl font-semibold tabular-nums">
                 ${monthlyOverview.totalAdhoc.toFixed(2)}
               </div>
             </div>
             <div>
-              <div className="text-sm text-gray-500 mb-1">Income This Month</div>
-              <div className="text-2xl font-bold">
+              <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Income This Month
+              </div>
+              <div className="font-mono text-2xl font-semibold tabular-nums">
                 ${monthlyOverview.totalIncome.toFixed(2)}
               </div>
             </div>
             <div>
-              <div className="text-sm text-gray-500 mb-1">Difference</div>
+              <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Difference
+              </div>
               <div
-                className={`text-2xl font-bold ${
+                className={`font-mono text-2xl font-semibold tabular-nums ${
                   monthlyOverview.difference >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
+                    ? "text-positive"
+                    : "text-destructive"
                 }`}
               >
                 ${monthlyOverview.difference.toFixed(2)}
@@ -266,16 +277,16 @@ export function BudgetSummary() {
 
           <div className="mt-5 pt-5 border-t flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-700">
+              <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                 Month-to-date adhoc savings
               </div>
               {monthlySavings !== null ? (
-                <div className="text-xs text-gray-400 mt-0.5">
+                <div className="text-xs text-muted-foreground/70 mt-0.5">
                   actual spend vs budget over {monthlySavings.trackedDays} tracked day
                   {monthlySavings.trackedDays !== 1 ? "s" : ""}
                 </div>
               ) : (
-                <div className="text-xs text-gray-400 mt-0.5">
+                <div className="text-xs text-muted-foreground/70 mt-0.5">
                   no tracked snapshots yet this month
                 </div>
               )}
@@ -293,16 +304,16 @@ export function BudgetSummary() {
               {monthlySavings !== null ? (
                 <>
                   <div
-                    className={`text-2xl font-bold ${
+                    className={`font-mono text-2xl font-semibold tabular-nums ${
                       monthlySavings.cumulative >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-positive"
+                        : "text-destructive"
                     }`}
                   >
                     {monthlySavings.cumulative >= 0 ? "+" : ""}
                     ${Math.abs(monthlySavings.cumulative).toFixed(2)}
                   </div>
-                  <div className="text-xs text-gray-400 mt-0.5">
+                  <div className="font-display text-xs italic text-muted-foreground mt-0.5">
                     {monthlySavings.cumulative > 0
                       ? "under budget"
                       : monthlySavings.cumulative < 0
@@ -311,7 +322,7 @@ export function BudgetSummary() {
                   </div>
                 </>
               ) : (
-                <div className="text-2xl font-bold text-gray-300">—</div>
+                <div className="font-mono text-2xl font-semibold text-muted-foreground/40">—</div>
               )}
             </div>
           </div>
@@ -325,73 +336,87 @@ export function BudgetSummary() {
           if (!period) return null;
 
           return (
-            <Card key={key}>
+            <Card key={key} className={key === "CURRENT_PERIOD" ? "border-primary/50" : ""}>
               <CardHeader>
                 <CardTitle className="text-lg">{title}</CardTitle>
-                <div className="text-sm text-gray-500">
+                <div className="font-mono text-xs tabular-nums text-muted-foreground">
                   {formatDateForDisplay(period.periodStart)}
                   {period.periodEnd &&
-                    ` - ${formatDateForDisplay(period.periodEnd)}`}
+                    ` — ${formatDateForDisplay(period.periodEnd)}`}
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-sm">
                     {period.entries.length > 0 ? (
                       period.entries.map((entry) => (
                         <div
                           key={entry.id}
                           className={`grid grid-cols-[1fr_auto_auto] gap-2 ${
-                            entry.paid_at ? "text-gray-400 line-through" : ""
+                            entry.paid_at
+                              ? "text-muted-foreground/60 line-through decoration-foreground/30"
+                              : ""
                           }`}
                         >
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1 truncate">
                             {entry.name}
                             {entry.source_recurring_id && (
                               <Repeat
-                                className="h-3 w-3 text-gray-400 shrink-0"
+                                className="h-3 w-3 text-muted-foreground/60 shrink-0"
                                 aria-label="Created by recurring item"
                               />
                             )}
                           </span>
-                          <span className="text-gray-500 text-sm">
+                          <span className="font-mono text-xs tabular-nums text-muted-foreground">
                             {formatDateForDisplay(entry.due_date)}
                           </span>
-                          <span>
+                          <span className="font-mono tabular-nums">
                             ${Number(entry.actual_amount ?? entry.amount).toFixed(2)}
                           </span>
                         </div>
                       ))
                     ) : (
-                      <div className="text-gray-500">No expenses</div>
+                      <div className="font-display italic text-muted-foreground">
+                        No expenses
+                      </div>
                     )}
                   </div>
 
-                  <div className="border-t pt-4 space-y-2">
+                  <div className="border-t-2 border-foreground/50 pt-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>Pay</span>
-                      <span>${Number(period.salary_amount).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Expenses</span>
-                      <span>${Number(period.totalExpenses).toFixed(2)}</span>
+                      <span className="text-muted-foreground">Pay</span>
+                      <span className="font-mono tabular-nums">
+                        ${Number(period.salary_amount).toFixed(2)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>Days remaining</span>
-                      <span>{period.daysInPeriod}</span>
+                      <span className="text-muted-foreground">Total Expenses</span>
+                      <span className="font-mono tabular-nums">
+                        ${Number(period.totalExpenses).toFixed(2)}
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Total Adhoc</span>
-                      <span>${Number(period.adhocTotal).toFixed(2)}</span>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Days remaining</span>
+                      <span className="font-mono tabular-nums">
+                        {period.daysInPeriod}
+                      </span>
                     </div>
-                    <div className="flex justify-between font-bold">
-                      <span>Balance</span>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Adhoc</span>
+                      <span className="font-mono tabular-nums">
+                        ${Number(period.adhocTotal).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between border-t border-border/70 pt-2">
+                      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        Balance
+                      </span>
                       <span
-                        className={
+                        className={`font-mono text-lg font-semibold tabular-nums ${
                           period.remaining < 0
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }
+                            ? "text-destructive"
+                            : "text-positive"
+                        }`}
                       >
                         ${Number(period.remaining).toFixed(2)}
                       </span>

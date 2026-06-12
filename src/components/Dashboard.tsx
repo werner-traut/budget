@@ -7,8 +7,17 @@ import { BudgetSummary } from "./BudgetSummary";
 import BalanceGraph from "./BalanceGraph";
 import { RecurringItemsManager } from "./RecurringItemsManager";
 import { useBudgetStore } from "@/store/useBudgetStore";
+import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 
 type ActiveTab = "budget" | "recurring" | "periods" | "summary" | "graph";
+
+const TABS: { id: ActiveTab; label: string }[] = [
+  { id: "budget", label: "Budget" },
+  { id: "recurring", label: "Recurring" },
+  { id: "periods", label: "Pay Periods" },
+  { id: "summary", label: "Summary" },
+  { id: "graph", label: "Graph" },
+];
 
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("budget");
@@ -51,8 +60,11 @@ export function Dashboard() {
   // Loading state
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="font-display text-2xl italic text-foreground/80">
+          Balancing the books&hellip;
+        </div>
+        <div className="h-px w-32 bg-foreground/40 animate-pulse" />
       </div>
     );
   }
@@ -60,64 +72,70 @@ export function Dashboard() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-red-600">Error: {error}</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="font-mono text-sm text-destructive">Error: {error}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
-      {/* Header Section */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-primary/25">
-              B
-            </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300">
-              Budget Tracker
-            </h1>
+    <div className="min-h-screen text-foreground selection:bg-primary/20">
+      {/* Masthead */}
+      <header className="sticky top-0 z-40 border-b border-foreground/15 bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-[1.6rem] font-semibold leading-none tracking-tight">
+              Budget
+            </span>
+            <span className="font-display text-[1.6rem] italic leading-none text-primary">
+              Tracker
+            </span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-muted-foreground">
-              v{process.env.NEXT_PUBLIC_APP_VERSION} • Welcome back
+          <div className="text-right leading-tight">
+            <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              {formatDateForDisplay(getTodayInUTC())}
             </div>
-            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-800 border-2 border-white dark:border-gray-700 shadow-sm"></div>
+            <div className="font-mono text-[10px] text-muted-foreground/60">
+              no. v{process.env.NEXT_PUBLIC_APP_VERSION}
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation Tabs */}
-        <div className="mb-8">
-          <nav className="flex p-1 space-x-1 bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl max-w-fit border border-gray-200/50 dark:border-gray-700/50">
-            {[
-              { id: "budget", label: "Budget" },
-              { id: "recurring", label: "Recurring" },
-              { id: "periods", label: "Pay Periods" },
-              { id: "summary", label: "Summary" },
-              { id: "graph", label: "Graph" },
-            ].map((tab) => (
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        {/* Index tabs */}
+        <nav className="mb-10 flex flex-wrap gap-x-8 gap-y-2 border-b border-border">
+          {TABS.map((tab, i) => {
+            const isActive = activeTab === tab.id;
+            return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as ActiveTab)}
-                className={`
-                  relative px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-out
-                  ${activeTab === tab.id
-                    ? "bg-white dark:bg-gray-800 text-primary shadow-sm ring-1 ring-black/5 dark:ring-white/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-700/50"
-                  }
-                `}
+                onClick={() => setActiveTab(tab.id)}
+                className={`group relative pb-3 text-sm transition-colors duration-200 ${
+                  isActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                {tab.label}
+                <span className="mr-2 font-mono text-[10px] tracking-[0.2em] text-primary/70">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="font-medium tracking-wide">{tab.label}</span>
+                <span
+                  className={`absolute inset-x-0 -bottom-px h-[2px] origin-left bg-primary transition-transform duration-300 ease-out ${
+                    isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-50"
+                  }`}
+                />
               </button>
-            ))}
-          </nav>
-        </div>
+            );
+          })}
+        </nav>
 
         {/* Content Area */}
-        <div className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl rounded-3xl border border-white/20 shadow-xl shadow-black/5 p-6 min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div
+          key={activeTab}
+          className="animate-in fade-in slide-in-from-bottom-2 duration-500"
+        >
           {activeTab === "budget" && <BudgetView />}
           {activeTab === "recurring" && <RecurringItemsManager />}
           {activeTab === "periods" && <PayPeriodManager />}

@@ -100,31 +100,31 @@ export function RecurringItemsManager() {
           <CardTitle>Recurring Items</CardTitle>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             Add Recurring Item
           </button>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Recurring items create budget entries automatically — immediately
             when added, and again each time pay periods shift.
           </p>
-          <div className="border rounded-lg overflow-hidden">
+          <div className="overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b">
-                  <th className="text-left p-3 font-medium">Name</th>
-                  <th className="text-left p-3 font-medium">Amount</th>
-                  <th className="text-left p-3 font-medium">Schedule</th>
-                  <th className="text-left p-3 font-medium">Status</th>
-                  <th className="text-right p-3 font-medium">Actions</th>
+                <tr className="border-b-2 border-foreground/60">
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Name</th>
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Amount</th>
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Schedule</th>
+                  <th className="p-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Status</th>
+                  <th className="p-3 text-right font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-border/70">
                 {recurringItems.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-4 text-center text-gray-500">
+                    <td colSpan={5} className="p-6 text-center font-display italic text-muted-foreground">
                       No recurring items yet
                     </td>
                   </tr>
@@ -132,25 +132,27 @@ export function RecurringItemsManager() {
                   recurringItems.map((item) => (
                     <tr
                       key={item.id}
-                      className={`hover:bg-gray-50 ${
-                        item.active ? "" : "text-gray-400"
+                      className={`transition-colors hover:bg-accent/50 ${
+                        item.active ? "" : "text-muted-foreground/60"
                       }`}
                     >
                       <td className="p-3">
                         <span className="flex items-center gap-1.5">
-                          <Repeat className="h-4 w-4 text-gray-400 shrink-0" />
+                          <Repeat className="h-4 w-4 text-muted-foreground/60 shrink-0" />
                           {item.name}
                         </span>
                       </td>
-                      <td className="p-3">${Number(item.amount).toFixed(2)}</td>
-                      <td className="p-3">{describeSchedule(item)}</td>
+                      <td className="p-3 font-mono tabular-nums">
+                        ${Number(item.amount).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-sm">{describeSchedule(item)}</td>
                       <td className="p-3">
                         <button
                           onClick={() => handleToggleActive(item)}
-                          className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
                             item.active
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
-                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              ? "border-positive/40 bg-accent text-positive hover:bg-accent/70"
+                              : "border-border bg-secondary text-muted-foreground hover:bg-secondary/70"
                           }`}
                           title={
                             item.active
@@ -164,14 +166,14 @@ export function RecurringItemsManager() {
                       <td className="p-3 text-right space-x-2">
                         <button
                           onClick={() => setEditingItem(item)}
-                          className="text-blue-600 hover:text-blue-800 p-1"
+                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
                           title="Edit"
                         >
                           <Pencil className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
-                          className="text-red-600 hover:text-red-800 p-1"
+                          className="text-muted-foreground hover:text-destructive p-1 transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-5 h-5" />

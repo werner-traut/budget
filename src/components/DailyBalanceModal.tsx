@@ -58,15 +58,15 @@ export function DailyBalanceModal({
   if (!isOpen || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-foreground/40 backdrop-blur-[2px] flex items-center justify-center z-50 animate-in fade-in duration-200">
+      <Card className="w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
         <CardHeader className="relative">
           <CardTitle className="text-xl font-semibold">
             Update Bank Balance
           </CardTitle>
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+            className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
           >
             <XCircle className="w-6 h-6" />
           </button>
@@ -74,7 +74,7 @@ export function DailyBalanceModal({
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1.5">
                 Current Bank Balance
               </label>
               <input
@@ -83,19 +83,19 @@ export function DailyBalanceModal({
                 step="0.01"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-md border border-input bg-background p-2 font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-ring focus:border-ring"
                 placeholder="Enter current balance"
                 required
               />
             </div>
-            {error && <div className="text-sm text-red-600">{error}</div>}
-            <div className="text-sm text-gray-500">
+            {error && <div className="text-sm text-destructive">{error}</div>}
+            <div className="font-mono text-xs tabular-nums text-muted-foreground">
               Last updated: {formatDateForDisplay(new Date())}
             </div>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-md bg-primary py-2 px-4 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Updating..." : "Update Balance"}
             </button>

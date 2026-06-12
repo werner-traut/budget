@@ -171,11 +171,13 @@ export function PayPeriodManager() {
   return (
     <div className="space-y-4 overflow-hidden">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Pay Periods</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          Pay Periods
+        </h2>
         <button
           onClick={handleAddPeriod}
           disabled={isAnimating}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           {isAnimating ? "Adding..." : "Add Period"}
         </button>
@@ -219,22 +221,26 @@ export function PayPeriodManager() {
                 <Card
                   className={cn(
                     "h-full",
-                    periodData ? "border-blue-200" : "border-gray-200"
+                    periodData
+                      ? index === 0 && !isAnimating
+                        ? "border-primary/50"
+                        : "border-border"
+                      : "border-dashed bg-transparent shadow-none"
                   )}
                 >
                   <CardHeader>
-                    <CardTitle className="text-sm font-medium">
+                    <CardTitle className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       {typeLabel}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {periodData ? (
                       <div className="space-y-2">
-                        <p className="font-medium">
-                          Start: {formatDateForDisplay(periodData.start_date)}
+                        <p className="font-mono text-sm tabular-nums">
+                          {formatDateForDisplay(periodData.start_date)}
                         </p>
-                        <p className="font-medium">
-                          Salary: ${Number(periodData.salary_amount).toFixed(2)}
+                        <p className="font-mono text-xl font-semibold tabular-nums text-primary">
+                          ${Number(periodData.salary_amount).toFixed(2)}
                         </p>
                         <button
                           onClick={() => {
@@ -242,7 +248,7 @@ export function PayPeriodManager() {
                             setSelectedPeriodType(periodData.period_type);
                             setShowForm(true);
                           }}
-                          className="text-sm text-blue-600 hover:text-blue-800"
+                          className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                         >
                           Edit
                         </button>
@@ -254,7 +260,7 @@ export function PayPeriodManager() {
                           setSelectedPeriodType(orderedTypes[index]);
                           setShowForm(true);
                         }}
-                        className="text-sm text-blue-600 hover:text-blue-800"
+                        className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                       >
                         Set Up Period
                       </button>

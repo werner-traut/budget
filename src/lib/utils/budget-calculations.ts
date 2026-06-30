@@ -13,7 +13,7 @@ export interface MonthlyBudgetOverview {
   difference: number;
 }
 
-export interface MonthToDateAdhocSavings {
+export interface AdhocSavingsSinceBaseline {
   cumulative: number;
   trackedDays: number;
   status: AdhocBudgetStatus;
@@ -240,41 +240,53 @@ export function getDaysBetween(previous: string | Date, current: string | Date):
 }
 
 /**
- * Month-to-date adhoc savings derived from stored, immutable snapshot deltas.
- * Sums the persisted `adhoc_delta` of every snapshot recorded in the current
- * UTC month. Rows without a stored delta (recorded before tracking began, or
- * baselines) contribute nothing. Returns null when the month has no data yet.
+ * Adhoc savings since the last baseline reset, taken straight from the stored,
+ * server-computed running total. Returns the most recent snapshot's
+ * `adhoc_cumulative` — the authoritative chained value — rather than re-summing
+ * deltas, so the card can never disagree with the persisted column (and honors a
+ * baseline reset, which zeroes that chain). Rows without a stored cumulative
+ * (recorded before tracking began) are ignored. Returns null when there is no
+ * tracked snapshot yet.
  */
-export function sumMonthToDateAdhocSavings(
-  history: Pick<BalanceHistory, "balance_date" | "adhoc_delta">[],
+export function getAdhocSavingsSinceBaseline(
+  history: Pick<
+    BalanceHistory,
+    "balance_date" | "adhoc_cumulative" | "adhoc_baseline"
+  >[],
   today: Date
-): MonthToDateAdhocSavings | null {
-  const monthRows = history.filter((row) => {
-    const balanceDate = new Date(row.balance_date);
-    return (
-      row.adhoc_delta !== null &&
-      row.adhoc_delta !== undefined &&
-      balanceDate <= today &&
-      isSameUtcMonth(balanceDate, today)
+): AdhocSavingsSinceBaseline | null {
+  const tracked = history
+    .filter(
+      (row) =>
+        row.adhoc_cumulative !== null &&
+        row.adhoc_cumulative !== undefined &&
+        new Date(row.balance_date) <= today
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.balance_date).getTime() - new Date(b.balance_date).getTime()
     );
-  });
 
-  if (!monthRows.length) return null;
+  if (!tracked.length) return null;
 
-  const cumulative = monthRows.reduce(
-    (sum, row) => sum + Number(row.adhoc_delta),
-    0
-  );
+  const latest = tracked[tracked.length - 1];
+  const cumulative = roundCurrency(Number(latest.adhoc_cumulative));
 
-  const dates = monthRows
-    .map((row) => new Date(row.balance_date).getTime())
-    .sort((a, b) => a - b);
-  const trackedDays = getDaysBetween(new Date(dates[0]), new Date(dates[dates.length - 1])) + 1;
+  // Count days since the most recent baseline reset, falling back to the first
+  // tracked row when the data contains no baseline.
+  let baselineIndex = 0;
+  for (let i = tracked.length - 1; i >= 0; i--) {
+    if (tracked[i].adhoc_baseline === true) {
+      baselineIndex = i;
+      break;
+    }
+  }
+  const trackedDays =
+    getDaysBetween(tracked[baselineIndex].balance_date, latest.balance_date) + 1;
 
-  const rounded = roundCurrency(cumulative);
   return {
-    cumulative: rounded,
+    cumulative,
     trackedDays,
-    status: getBudgetStatus(rounded),
+    status: getBudgetStatus(cumulative),
   };
 }

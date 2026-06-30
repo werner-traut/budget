@@ -4,8 +4,8 @@ import {
   calculateMonthlyBudgetOverview,
   calculatePeriodSummaries,
   computeAdhocSnapshot,
+  getAdhocSavingsSinceBaseline,
   getDaysBetween,
-  sumMonthToDateAdhocSavings,
 } from "./budget-calculations";
 import type { BalanceHistory } from "@/types/balanceHistory";
 import type { BudgetEntry } from "@/types/budget";
@@ -40,9 +40,17 @@ function payPeriod(date: string, salaryAmount: number): PayPeriod {
 
 function historyRow(
   date: string,
-  adhocDelta: number | null
-): Pick<BalanceHistory, "balance_date" | "adhoc_delta"> {
-  return { balance_date: date, adhoc_delta: adhocDelta };
+  adhocCumulative: number | null,
+  adhocBaseline = false
+): Pick<
+  BalanceHistory,
+  "balance_date" | "adhoc_cumulative" | "adhoc_baseline"
+> {
+  return {
+    balance_date: date,
+    adhoc_cumulative: adhocCumulative,
+    adhoc_baseline: adhocBaseline,
+  };
 }
 
 describe("calculateMonthlyBudgetOverview", () => {
@@ -290,24 +298,23 @@ describe("computeAdhocSnapshot", () => {
   });
 });
 
-describe("sumMonthToDateAdhocSavings", () => {
+describe("getAdhocSavingsSinceBaseline", () => {
   const today = new Date("2026-06-10T00:00:00.000Z");
 
-  it("returns null when there are no tracked rows this month", () => {
-    expect(sumMonthToDateAdhocSavings([], today)).toBeNull();
+  it("returns null when there are no tracked rows", () => {
+    expect(getAdhocSavingsSinceBaseline([], today)).toBeNull();
     expect(
-      sumMonthToDateAdhocSavings([historyRow("2026-06-02", null)], today)
+      getAdhocSavingsSinceBaseline([historyRow("2026-06-02", null)], today)
     ).toBeNull();
   });
 
-  it("sums stored deltas within the current UTC month only", () => {
-    const result = sumMonthToDateAdhocSavings(
+  it("reads the latest snapshot's stored cumulative, ignoring future rows", () => {
+    const result = getAdhocSavingsSinceBaseline(
       [
-        historyRow("2026-05-31", 999), // previous month — ignored
-        historyRow("2026-06-01", 0), // baseline
+        historyRow("2026-06-01", 0, true), // baseline
         historyRow("2026-06-04", -25.5),
-        historyRow("2026-06-08", 100),
-        historyRow("2026-06-20", 50), // future-dated — ignored
+        historyRow("2026-06-08", 74.5),
+        historyRow("2026-06-20", 999), // future-dated — ignored
       ],
       today
     );
@@ -315,12 +322,30 @@ describe("sumMonthToDateAdhocSavings", () => {
     expect(result).not.toBeNull();
     expect(result?.cumulative).toBe(74.5);
     expect(result?.status).toBe("under-budget");
-    // first tracked row 06-01 .. last tracked row 06-08 = 8 days
+    // baseline 06-01 .. latest tracked row 06-08 = 8 days
     expect(result?.trackedDays).toBe(8);
   });
 
-  it("ignores rows without a stored delta", () => {
-    const result = sumMonthToDateAdhocSavings(
+  it("counts tracked days from the most recent baseline reset", () => {
+    const result = getAdhocSavingsSinceBaseline(
+      [
+        historyRow("2026-06-01", 33),
+        historyRow("2026-06-03", -52),
+        historyRow("2026-06-05", 0, true), // reset
+        historyRow("2026-06-08", -434),
+      ],
+      today
+    );
+
+    // The stored cumulative already reflects the reset.
+    expect(result?.cumulative).toBe(-434);
+    expect(result?.status).toBe("over-budget");
+    // reset 06-05 .. latest 06-08 = 4 days
+    expect(result?.trackedDays).toBe(4);
+  });
+
+  it("ignores rows without a stored cumulative", () => {
+    const result = getAdhocSavingsSinceBaseline(
       [
         historyRow("2026-06-02", null),
         historyRow("2026-06-05", -40),

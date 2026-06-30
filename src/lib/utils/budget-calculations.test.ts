@@ -81,7 +81,7 @@ describe("calculateMonthlyBudgetOverview", () => {
 });
 
 describe("calculateMonthlyBudgetOverview paid entries", () => {
-  it("counts paid entries at their actual amount", () => {
+  it("counts the budgeted amount even when a paid entry settled at a different actual", () => {
     const paid = {
       ...budgetEntry("2026-01-20", 500),
       paid_at: "2026-01-19",
@@ -94,10 +94,10 @@ describe("calculateMonthlyBudgetOverview paid entries", () => {
       new Date("2026-01-10T00:00:00.000Z")
     );
 
-    expect(overview.totalExpenses).toBe(650);
+    expect(overview.totalExpenses).toBe(700);
   });
 
-  it("falls back to the budgeted amount when no actual amount is stored", () => {
+  it("counts the budgeted amount for paid entries with no actual stored", () => {
     const paid = { ...budgetEntry("2026-01-20", 500), paid_at: "2026-01-19" };
     const overview = calculateMonthlyBudgetOverview(
       [paid],

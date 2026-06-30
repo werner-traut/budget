@@ -48,13 +48,10 @@ function sumBudgetEntriesInUtcMonth(
 ): number {
   return entries
     .filter((entry) => isSameUtcMonth(new Date(entry.due_date), monthDate))
-    // Paid entries count at what was actually paid so the month's plan stays
-    // comparable to income; they are not excluded here (this is a full-month
-    // plan view, not a remaining-balance projection).
-    .reduce(
-      (sum, entry) => sum + Number(entry.actual_amount ?? entry.amount),
-      0
-    );
+    // Always count the budgeted amount, paid or not — this is the full-month
+    // plan view, so it reflects what the month was budgeted to cost rather than
+    // what individual entries actually settled at.
+    .reduce((sum, entry) => sum + Number(entry.amount), 0);
 }
 
 function sumPayPeriodsInUtcMonth(payPeriods: PayPeriod[], monthDate: Date): number {

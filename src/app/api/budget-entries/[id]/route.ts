@@ -3,8 +3,23 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { formatDateForAPI, parseDateStringToUTC } from "@/lib/utils/date";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 export const runtime = 'nodejs';
+
+const parseableDate = z
+  .string()
+  .refine((s) => !Number.isNaN(new Date(s).getTime()), "Invalid date");
+
+// Non-strict: the client PUTs the whole entry object, so unknown keys
+// (id, user_id, timestamps, ...) are stripped rather than rejected.
+const updateBudgetEntrySchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  amount: z.number().optional(),
+  due_date: parseableDate.optional(),
+  paid_at: parseableDate.nullable().optional(),
+  actual_amount: z.number().min(0).nullable().optional(),
+});
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -46,7 +61,7 @@ export async function PUT(req: NextRequest) {
   const id = req.nextUrl.pathname.split("/").pop(); // Get ID from URL path
 
   try {
-    const body = await req.json();
+    const body = updateBudgetEntrySchema.parse(await req.json());
 
     // First verify the entry belongs to the user
     const existingEntry = await prisma.budget_items.findUnique({
@@ -59,16 +74,6 @@ export async function PUT(req: NextRequest) {
 
     if (existingEntry.user_id !== session.user.id) {
       return new NextResponse("Unauthorized", { status: 403 });
-    }
-
-    if (
-      body.actual_amount !== undefined &&
-      body.actual_amount !== null &&
-      (typeof body.actual_amount !== "number" || body.actual_amount < 0)
-    ) {
-      return new NextResponse("actual_amount must be a non-negative number", {
-        status: 400,
-      });
     }
 
     const budgetItem = await prisma.budget_items.update({
@@ -100,6 +105,13 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(budgetItem);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({ message: "Invalid input", errors: error.issues }),
+        { status: 400 }
+      );
+    }
+
     console.error("Failed to update budget entry:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }

@@ -1,8 +1,13 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export const runtime = 'nodejs';
+
+const adhocSettingsSchema = z.object({
+  daily_amount: z.number().min(0),
+});
 
 export async function GET() {
   const session = await auth();
@@ -50,7 +55,7 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const body = adhocSettingsSchema.parse(await req.json());
 
     const adhocSettings = await prisma.adhoc_settings.upsert({
       where: {
@@ -71,6 +76,13 @@ export async function PUT(req: Request) {
 
     return NextResponse.json(adhocSettings);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({ message: "Invalid input", errors: error.issues }),
+        { status: 400 }
+      );
+    }
+
     console.error("Failed to update adhoc settings:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }

@@ -7,10 +7,20 @@ import {
 } from "@/lib/utils/budget-calculations";
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export const runtime = 'nodejs';
 
 const DEFAULT_DAILY_AMOUNT = 40;
+
+// Non-strict: the client also sends fields the server recomputes itself
+// (e.g. dailyExpenses); those are stripped rather than rejected.
+const balanceHistorySchema = z.object({
+  bankBalance: z.number(),
+  currentPeriodEndBalance: z.number(),
+  nextPeriodEndBalance: z.number(),
+  periodAfterEndBalance: z.number(),
+});
 
 /** Sum salary/expenses falling in the window (after, through] for a user. */
 async function sumInWindow(
@@ -46,6 +56,14 @@ export async function GET(req: Request) {
   const duration = url.searchParams.get("days") || "30";
   const startDate = url.searchParams.get("startDate");
 
+  const days = Number.parseInt(duration, 10);
+  if (!startDate && (Number.isNaN(days) || days <= 0)) {
+    return new NextResponse("days must be a positive integer", { status: 400 });
+  }
+  if (startDate && Number.isNaN(new Date(startDate).getTime())) {
+    return new NextResponse("startDate must be a valid date", { status: 400 });
+  }
+
   try {
     const whereCondition: Prisma.balance_historyWhereInput = {
       user_id: session.user.id,
@@ -57,7 +75,7 @@ export async function GET(req: Request) {
       };
     } else {
       whereCondition.balance_date = {
-        gte: new Date(Date.now() - parseInt(duration) * 24 * 60 * 60 * 1000),
+        gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
       };
     }
 
@@ -83,10 +101,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const body = balanceHistorySchema.parse(await req.json());
     const userId = session.user.id;
     const today = getTodayInUTC();
-    const bankBalance = Number(body.bankBalance);
+    const bankBalance = body.bankBalance;
 
     // The most recent snapshot strictly before today anchors the calculation.
     // Re-saving today's row therefore always recomputes against the prior day,
@@ -194,6 +212,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(balanceHistory);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({ message: "Invalid input", errors: error.issues }),
+        { status: 400 }
+      );
+    }
+
     console.error("Failed to update balance history:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }

@@ -23,6 +23,10 @@ const payPeriodSchema = z.object({
   salary_amount: z.number().positive("Salary must be positive"),
 });
 
+// Distinguishes expected validation failures from internal errors so only
+// their messages are echoed back to the client.
+class PeriodOrderError extends Error {}
+
 async function validatePeriodOrder(
   userId: string,
   newPeriod: { period_type: string; start_date: Date }
@@ -63,7 +67,7 @@ async function validatePeriodOrder(
 
   for (let i = 0; i < activePeriods.length; i++) {
     if (activePeriods[i].period_type !== correctOrder[i]) {
-      throw new Error("Periods must be in correct chronological order");
+      throw new PeriodOrderError("Periods must be in correct chronological order");
     }
   }
 }
@@ -163,7 +167,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (error instanceof Error) {
+    if (error instanceof PeriodOrderError) {
       return new NextResponse(error.message, { status: 400 });
     }
 

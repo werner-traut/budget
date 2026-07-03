@@ -57,6 +57,15 @@ export const {
     ...(devBypassEnabled ? [devBypassProvider] : []),
   ],
   callbacks: {
+    async signIn({ account, profile }) {
+      // Users are looked up/created by email, so only accept emails the
+      // provider has actually verified — otherwise a second provider added
+      // later could be used to claim someone else's account.
+      if (account?.provider === "google") {
+        return profile?.email_verified === true;
+      }
+      return true;
+    },
     async jwt({ token, profile, user }) {
       // Credentials sign-in delivers the email on `user`; copy it onto the
       // token so the lookup below works the same as for OAuth.

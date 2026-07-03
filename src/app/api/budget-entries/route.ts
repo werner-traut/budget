@@ -7,9 +7,17 @@ import {
   parseDateStringToUTC,
 } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
-import { CreateBudgetEntryDto } from "@/types/budget";
+import { z } from "zod";
 
 export const runtime = 'nodejs';
+
+const createBudgetEntrySchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(200),
+  amount: z.number(),
+  due_date: z
+    .string()
+    .refine((s) => !Number.isNaN(new Date(s).getTime()), "Invalid date"),
+});
 
 /**
  * Entries older than this cutoff are invisible to every screen: the monthly
@@ -72,7 +80,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body: CreateBudgetEntryDto = await req.json();
+    const body = createBudgetEntrySchema.parse(await req.json());
 
     const normalizedDueDate = parseDateStringToUTC(
       formatDateForAPI(body.due_date)
@@ -89,6 +97,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(budgetItem);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({ message: "Invalid input", errors: error.issues }),
+        { status: 400 }
+      );
+    }
+
     console.error("Failed to create budget entry:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }

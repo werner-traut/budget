@@ -99,6 +99,19 @@ export function parseDateStringToUTC(dateString: string): Date {
 }
 
 /**
+ * Adds the provided number of days to a date-only string (or Date object),
+ * calculated purely in UTC calendar space to avoid timezone drift.
+ */
+export function addDaysToDateString(
+  date: string | Date,
+  daysToAdd: number
+): string {
+  const result = parseDateStringToUTC(formatDateForAPI(date));
+  result.setUTCDate(result.getUTCDate() + daysToAdd);
+  return formatDateForAPI(result);
+}
+
+/**
  * Adds the provided number of months to a date-only string (or Date object)
  * while keeping calculations purely in calendar space (UTC) to avoid timezone
  * drift when manipulating midnight UTC values in local time.

@@ -9,11 +9,13 @@ import {
   Repeat,
   ChevronDown,
   ChevronRight,
+  CalendarPlus,
 } from "lucide-react";
 import { DailyBalanceCheck } from "./DailyBalanceCheck";
 import { BudgetEntryForm } from "./BudgetEntryForm";
 import { MarkPaidDialog } from "./MarkPaidDialog";
 import {
+  addDaysToDateString,
   formatDateForAPI,
   formatDateForDisplay,
   getTodayInUTC,
@@ -127,10 +129,22 @@ export function BudgetView() {
     paidAt: string | null,
     actualAmount: number | null
   ) => {
+    // Paying an entry early or late moves its due date to today, so period
+    // calculations count it on the day the money actually left the account.
+    const today = formatDateForAPI(getTodayInUTC());
+    const dueDate =
+      paidAt !== null && formatDateForAPI(entry.due_date) !== today
+        ? today
+        : undefined;
+
     const response = await fetch(`/api/budget-entries/${entry.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid_at: paidAt, actual_amount: actualAmount }),
+      body: JSON.stringify({
+        paid_at: paidAt,
+        actual_amount: actualAmount,
+        ...(dueDate !== undefined && { due_date: dueDate }),
+      }),
     });
     const updatedEntry = await parseApiResponse(
       response,
@@ -138,6 +152,27 @@ export function BudgetView() {
       "Failed to update entry"
     );
     updateEntry(entry.id, updatedEntry);
+  };
+
+  const handlePostponeEntry = async (entry: BudgetEntry) => {
+    try {
+      const response = await fetch(`/api/budget-entries/${entry.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          due_date: addDaysToDateString(entry.due_date, 1),
+        }),
+      });
+      const updatedEntry = await parseApiResponse(
+        response,
+        budgetEntrySchema,
+        "Failed to postpone entry"
+      );
+      updateEntry(entry.id, updatedEntry);
+    } catch (err) {
+      console.error("Error postponing entry:", err);
+      setError(err instanceof Error ? err.message : "An error occurred");
+    }
   };
 
   const handleUnmarkPaid = async (entry: BudgetEntry) => {
@@ -183,6 +218,15 @@ export function BudgetView() {
           {formatDateForDisplay(entry.due_date)}
         </td>
         <td className="p-3 text-right space-x-2">
+          {!isPaid && (
+            <button
+              onClick={() => handlePostponeEntry(entry)}
+              className="text-muted-foreground hover:text-primary p-1 transition-colors"
+              title="Postpone due date by 1 day"
+            >
+              <CalendarPlus className="w-5 h-5" />
+            </button>
+          )}
           <button
             onClick={() => setEditingEntry(entry)}
             className="text-muted-foreground hover:text-primary p-1 transition-colors"

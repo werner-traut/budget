@@ -6,7 +6,9 @@ import { Pencil, Trash2, Repeat } from "lucide-react";
 import { RecurringItemForm } from "./RecurringItemForm";
 import { formatDateForDisplay } from "@/lib/utils/date";
 import { useBudgetStore } from "@/store/useBudgetStore";
+import { parseApiResponse, recurringItemSchema } from "@/lib/api/schemas";
 import type { RecurringItem, UpdateRecurringItemDto } from "@/types/recurring";
+import { z } from "zod";
 
 function describeSchedule(item: RecurringItem): string {
   switch (item.frequency) {
@@ -34,20 +36,18 @@ export function RecurringItemsManager() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<RecurringItem | null>(null);
 
-  const processItem = (item: RecurringItem): RecurringItem => ({
-    ...item,
-    amount: Number(item.amount),
-  });
-
   const handleCreate = async (data: UpdateRecurringItemDto) => {
     const response = await fetch("/api/recurring-items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to create recurring item");
-    const { item } = await response.json();
-    addRecurringItem(processItem(item));
+    const { item } = await parseApiResponse(
+      response,
+      z.object({ item: recurringItemSchema }),
+      "Failed to create recurring item"
+    );
+    addRecurringItem(item);
     // Creation backfills instances immediately; pick them up.
     await fetchEntries();
   };
@@ -58,9 +58,12 @@ export function RecurringItemsManager() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update recurring item");
-    const item = await response.json();
-    updateRecurringItem(id, processItem(item));
+    const item = await parseApiResponse(
+      response,
+      recurringItemSchema,
+      "Failed to update recurring item"
+    );
+    updateRecurringItem(id, item);
     await fetchEntries();
   };
 

@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { getLocalDateString } from "@/lib/utils/date";
+import {
+  adhocSettingsSchema,
+  budgetEntryListSchema,
+  dailyBalanceGetSchema,
+  parseApiResponse,
+  payPeriodListSchema,
+  recurringItemListSchema,
+} from '@/lib/api/schemas'
 import type { BudgetEntry } from '@/types/budget'
 import type { PayPeriod } from '@/types/periods'
 import type { RecurringItem } from '@/types/recurring'
@@ -110,14 +118,12 @@ export const useBudgetStore = create<BudgetState>()(
       const { setEntries, setError } = get()
       try {
         const response = await fetch('/api/budget-entries')
-        if (!response.ok) throw new Error('Failed to fetch entries')
-        const data = await response.json()
-        const processedData = data.map((item: BudgetEntry) => ({
-          ...item,
-          amount: Number(item.amount),
-          actual_amount: item.actual_amount === null ? null : Number(item.actual_amount),
-        }))
-        setEntries(processedData)
+        const data = await parseApiResponse(
+          response,
+          budgetEntryListSchema,
+          'Failed to fetch entries'
+        )
+        setEntries(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch entries')
         console.error('Error fetching entries:', err)
@@ -128,13 +134,12 @@ export const useBudgetStore = create<BudgetState>()(
       const { setRecurringItems, setError } = get()
       try {
         const response = await fetch('/api/recurring-items')
-        if (!response.ok) throw new Error('Failed to fetch recurring items')
-        const data = await response.json()
-        const processedData = data.map((item: RecurringItem) => ({
-          ...item,
-          amount: Number(item.amount),
-        }))
-        setRecurringItems(processedData)
+        const data = await parseApiResponse(
+          response,
+          recurringItemListSchema,
+          'Failed to fetch recurring items'
+        )
+        setRecurringItems(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch recurring items')
         console.error('Error fetching recurring items:', err)
@@ -145,14 +150,13 @@ export const useBudgetStore = create<BudgetState>()(
       const { setPayPeriods, setError } = get()
       try {
         const response = await fetch('/api/pay-periods')
-        if (!response.ok) throw new Error('Failed to fetch pay periods')
-        const data = await response.json()
-        const processedData = data.map((item: PayPeriod) => ({
-          ...item,
-          salary_amount: Number(item.salary_amount),
-        }))
-        const sortedPeriods = processedData.sort(
-            (a: PayPeriod, b: PayPeriod) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+        const data = await parseApiResponse(
+          response,
+          payPeriodListSchema,
+          'Failed to fetch pay periods'
+        )
+        const sortedPeriods = [...data].sort(
+            (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
           );
         setPayPeriods(sortedPeriods)
       } catch (err) {
@@ -166,9 +170,12 @@ export const useBudgetStore = create<BudgetState>()(
       try {
         const today = getLocalDateString();
         const response = await fetch(`/api/daily-balance?date=${today}`)
-        if (!response.ok) throw new Error('Failed to fetch daily balance')
-        const data = await response.json()
-        setDailyBalance(data.balance === null ? null : Number(data.balance))
+        const data = await parseApiResponse(
+          response,
+          dailyBalanceGetSchema,
+          'Failed to fetch daily balance'
+        )
+        setDailyBalance(data.balance)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch daily balance')
         console.error('Error fetching daily balance:', err)
@@ -179,8 +186,11 @@ export const useBudgetStore = create<BudgetState>()(
       const { setAdhocSettings, setError } = get()
       try {
         const response = await fetch('/api/adhoc-settings')
-        if (!response.ok) throw new Error('Failed to fetch adhoc settings')
-        const data = await response.json()
+        const data = await parseApiResponse(
+          response,
+          adhocSettingsSchema,
+          'Failed to fetch adhoc settings'
+        )
         setAdhocSettings(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch adhoc settings')

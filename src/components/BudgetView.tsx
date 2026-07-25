@@ -18,6 +18,7 @@ import {
   formatDateForDisplay,
   getTodayInUTC,
 } from "@/lib/utils/date";
+import { budgetEntrySchema, parseApiResponse } from "@/lib/api/schemas";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import type { BudgetEntry } from "@/types/budget";
 import { Button } from "@/components/ui/button";
@@ -70,13 +71,12 @@ export function BudgetView() {
           due_date: formatDateForAPI(entry.due_date),
         }),
       });
-      if (!response.ok) throw new Error("Failed to create entry");
-      const newEntry = await response.json();
-      const processedEntry = {
-        ...newEntry,
-        amount: Number(newEntry.amount),
-      };
-      addEntry(processedEntry);
+      const newEntry = await parseApiResponse(
+        response,
+        budgetEntrySchema,
+        "Failed to create entry"
+      );
+      addEntry(newEntry);
       setShowEntryForm(false);
     } catch (err) {
       console.error("Error adding entry:", err);
@@ -94,13 +94,12 @@ export function BudgetView() {
           due_date: formatDateForAPI(updatedData.due_date),
         }),
       });
-      if (!response.ok) throw new Error("Failed to update entry");
-      const updatedEntry = await response.json();
-      const processedEntry = {
-        ...updatedEntry,
-        amount: Number(updatedEntry.amount),
-      };
-      updateEntry(entryId, processedEntry);
+      const updatedEntry = await parseApiResponse(
+        response,
+        budgetEntrySchema,
+        "Failed to update entry"
+      );
+      updateEntry(entryId, updatedEntry);
       setEditingEntry(null);
     } catch (err) {
       console.error("Error updating entry:", err);
@@ -133,16 +132,12 @@ export function BudgetView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paid_at: paidAt, actual_amount: actualAmount }),
     });
-    if (!response.ok) throw new Error("Failed to update entry");
-    const updatedEntry = await response.json();
-    updateEntry(entry.id, {
-      ...updatedEntry,
-      amount: Number(updatedEntry.amount),
-      actual_amount:
-        updatedEntry.actual_amount === null
-          ? null
-          : Number(updatedEntry.actual_amount),
-    });
+    const updatedEntry = await parseApiResponse(
+      response,
+      budgetEntrySchema,
+      "Failed to update entry"
+    );
+    updateEntry(entry.id, updatedEntry);
   };
 
   const handleUnmarkPaid = async (entry: BudgetEntry) => {

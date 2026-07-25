@@ -29,6 +29,10 @@ import {
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import {
+  balanceHistoryListSchema,
+  parseApiResponse,
+} from "@/lib/api/schemas";
 import type { BalanceHistory } from '@/types/balanceHistory';
 
 // Define the shape of our data point
@@ -108,8 +112,11 @@ function BalanceGraph() {
       }
 
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch balance history');
-      const data: BalanceHistory[] = await response.json();
+      const data = await parseApiResponse(
+        response,
+        balanceHistoryListSchema,
+        'Failed to fetch balance history'
+      );
       setHistory(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balance history');

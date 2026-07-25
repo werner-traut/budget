@@ -12,6 +12,12 @@ import {
   getAdhocSavingsSinceBaseline,
 } from "@/lib/utils/budget-calculations";
 import { useBudgetStore } from "@/store/useBudgetStore";
+import {
+  adhocSettingsSchema,
+  balanceHistoryListSchema,
+  parseApiResponse,
+  payPeriodListSchema,
+} from "@/lib/api/schemas";
 import type { BalanceHistory } from "@/types/balanceHistory";
 import type { PayPeriod } from "@/types/periods";
 
@@ -38,7 +44,13 @@ export function BudgetSummary() {
     // the current month, so fetch a wide window rather than month-to-date.
     try {
       const response = await fetch(`/api/balance-history?days=3650`);
-      if (response.ok) setAdhocHistory(await response.json());
+      setAdhocHistory(
+        await parseApiResponse(
+          response,
+          balanceHistoryListSchema,
+          "Failed to fetch adhoc history"
+        )
+      );
     } catch {
       // Non-fatal: the savings card simply stays hidden.
     }
@@ -62,18 +74,14 @@ export function BudgetSummary() {
     fetch(
       `/api/pay-periods?includeClosed=true&startDate=${startDateStr}&endDate=${endDateStr}`
     )
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to fetch monthly pay periods");
-        return r.json();
-      })
-      .then((data: PayPeriod[]) =>
-        setMonthlyPayPeriods(
-          data.map((period) => ({
-            ...period,
-            salary_amount: Number(period.salary_amount),
-          }))
+      .then((r) =>
+        parseApiResponse(
+          r,
+          payPeriodListSchema,
+          "Failed to fetch monthly pay periods"
         )
       )
+      .then(setMonthlyPayPeriods)
       .catch(() => {
         setMonthlyPayPeriods(null);
       });
@@ -112,7 +120,7 @@ export function BudgetSummary() {
       if (!periods.CURRENT_PERIOD) return;
 
       try {
-        await fetch("/api/balance-history", {
+        const response = await fetch("/api/balance-history", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -125,6 +133,9 @@ export function BudgetSummary() {
             dailyExpenses: adhocSettings.daily_amount,
           }),
         });
+        if (!response.ok) {
+          throw new Error(`Failed to save balance history (${response.status})`);
+        }
         // The server computes the adhoc variance for today's snapshot, so
         // refresh the history to reflect it in the card.
         await fetchAdhocHistory();
@@ -160,8 +171,11 @@ export function BudgetSummary() {
         body: JSON.stringify({ daily_amount: parseFloat(newDailyAmount) }),
       });
 
-      if (!response.ok) throw new Error("Failed to update adhoc amount");
-      const data = await response.json();
+      const data = await parseApiResponse(
+        response,
+        adhocSettingsSchema,
+        "Failed to update adhoc amount"
+      );
       setAdhocSettings(data);
       setIsEditingAdhoc(false);
     } catch (err) {

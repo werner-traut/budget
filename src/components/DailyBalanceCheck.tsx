@@ -1,9 +1,13 @@
 // src/components/DailyBalanceCheck.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DailyBalanceModal } from "./DailyBalanceModal";
 import { getLocalDateString } from "@/lib/utils/date";
+import {
+  dailyBalanceUpsertSchema,
+  parseApiResponse,
+} from "@/lib/api/schemas";
 
 interface DailyBalanceCheckProps {
   onDailyBalanceChange: (balance: number) => void;
@@ -18,19 +22,18 @@ export function DailyBalanceCheck({
   isOpen: controlledIsOpen,
   onClose,
 }: DailyBalanceCheckProps) {
-  const [showModal, setShowModal] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [currentBalance, setCurrentBalance] = useState<number | undefined>(
     initialBalance !== null ? initialBalance : undefined
   );
 
-  useEffect(() => {
-    if (!currentBalance && controlledIsOpen === undefined) {
-      setShowModal(true);
-    }
-  }, [currentBalance, controlledIsOpen]);
-
-  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : showModal;
-  const handleClose = onClose || (() => setShowModal(false));
+  // Uncontrolled mode: open automatically while no balance has been entered,
+  // until explicitly dismissed.
+  const isOpen =
+    controlledIsOpen !== undefined
+      ? controlledIsOpen
+      : !currentBalance && !dismissed;
+  const handleClose = onClose || (() => setDismissed(true));
 
   return (
     <DailyBalanceModal
@@ -44,9 +47,11 @@ export function DailyBalanceCheck({
             body: JSON.stringify({ balance, date: getLocalDateString() }),
           });
 
-          if (!response.ok) throw new Error("Failed to save balance");
-
-          const data = await response.json();
+          const data = await parseApiResponse(
+            response,
+            dailyBalanceUpsertSchema,
+            "Failed to save balance"
+          );
           setCurrentBalance(data.balance);
           onDailyBalanceChange(data.balance);
           handleClose();

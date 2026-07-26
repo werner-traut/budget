@@ -14,7 +14,6 @@
     "release": "release-it"
   },
   "dependencies": {
-    "@auth/core": "^0.37.3",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/extension-accelerate": "^3.0.1",

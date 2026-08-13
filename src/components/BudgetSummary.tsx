@@ -404,6 +404,14 @@ export function BudgetSummary() {
                         ${Number(period.totalExpenses).toFixed(2)}
                       </span>
                     </div>
+                    {period.actualSpend > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Actual Spend</span>
+                        <span className="font-mono tabular-nums">
+                          ${Number(period.actualSpend).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Days remaining</span>
                       <span className="font-mono tabular-nums">

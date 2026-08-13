@@ -94,6 +94,7 @@ export function calculateMonthlyBudgetOverview(
 export interface PeriodSummary {
   entries: BudgetEntry[];
   totalExpenses: number;
+  actualSpend: number;
   periodStart: string;
   periodEnd: string | null;
   salary_amount: number;
@@ -136,6 +137,12 @@ export function calculatePeriodSummaries(
       .filter((entry) => !entry.paid_at)
       .reduce((sum, entry) => sum + Number(entry.amount), 0);
 
+    // Actual spend: what was really paid so far, based on paid entries'
+    // actual_amount (falling back to the budgeted amount when unset).
+    const actualSpend = periodEntries
+      .filter((entry) => entry.paid_at)
+      .reduce((sum, entry) => sum + Number(entry.actual_amount ?? entry.amount), 0);
+
     let daysInPeriod;
     if (period.period_type === "CURRENT_PERIOD") {
       daysInPeriod = periodEnd
@@ -160,6 +167,7 @@ export function calculatePeriodSummaries(
     acc[period.period_type] = {
       entries: periodEntries,
       totalExpenses,
+      actualSpend,
       periodStart: period.start_date,
       periodEnd: nextPeriod?.start_date || null,
       salary_amount: payAmount,

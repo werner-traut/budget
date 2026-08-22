@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Repeat } from "lucide-react";
-import { formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
+import { formatDateForAPI, formatDateForDisplay, getTodayInUTC } from "@/lib/utils/date";
 import {
   calculateMonthlyBudgetOverview,
   calculatePeriodSummaries,
@@ -358,32 +358,43 @@ export function BudgetSummary() {
                 <div className="space-y-4">
                   <div className="space-y-2 text-sm">
                     {period.entries.length > 0 ? (
-                      period.entries.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className={`grid grid-cols-[1fr_auto_auto] gap-2 ${
-                            entry.paid_at
-                              ? "text-muted-foreground/60 line-through decoration-foreground/30"
-                              : ""
-                          }`}
-                        >
-                          <span className="flex items-center gap-1 truncate">
-                            {entry.name}
-                            {entry.source_recurring_id && (
-                              <Repeat
-                                className="h-3 w-3 text-muted-foreground/60 shrink-0"
-                                aria-label="Created by recurring item"
-                              />
-                            )}
-                          </span>
-                          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                            {formatDateForDisplay(entry.due_date)}
-                          </span>
-                          <span className="font-mono tabular-nums">
-                            ${Number(entry.actual_amount ?? entry.amount).toFixed(2)}
-                          </span>
-                        </div>
-                      ))
+                      period.entries.map((entry) => {
+                        const isDueToday =
+                          !entry.paid_at &&
+                          formatDateForAPI(entry.due_date) === formatDateForAPI(getTodayInUTC());
+                        return (
+                          <div
+                            key={entry.id}
+                            className={`grid grid-cols-[1fr_auto_auto] gap-2 rounded px-1 -mx-1 ${
+                              entry.paid_at
+                                ? "text-muted-foreground/60 line-through decoration-foreground/30"
+                                : isDueToday
+                                  ? "bg-primary/10"
+                                  : ""
+                            }`}
+                          >
+                            <span className="flex items-center gap-1 truncate">
+                              {entry.name}
+                              {entry.source_recurring_id && (
+                                <Repeat
+                                  className="h-3 w-3 text-muted-foreground/60 shrink-0"
+                                  aria-label="Created by recurring item"
+                                />
+                              )}
+                            </span>
+                            <span
+                              className={`font-mono text-xs tabular-nums ${
+                                isDueToday ? "font-semibold text-primary" : "text-muted-foreground"
+                              }`}
+                            >
+                              {isDueToday ? "Today" : formatDateForDisplay(entry.due_date)}
+                            </span>
+                            <span className="font-mono tabular-nums">
+                              ${Number(entry.actual_amount ?? entry.amount).toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })
                     ) : (
                       <div className="font-display italic text-muted-foreground">
                         No expenses

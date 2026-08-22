@@ -186,12 +186,13 @@ export function BudgetView() {
 
   const renderEntryRow = (entry: BudgetEntry) => {
     const isPaid = entry.paid_at !== null;
+    const isDueToday = !isPaid && formatDateForAPI(entry.due_date) === formatDateForAPI(getTodayInUTC());
     return (
       <tr
         key={entry.id}
         className={`transition-colors hover:bg-accent/50 ${
           isPaid ? "text-muted-foreground/60" : ""
-        }`}
+        } ${isDueToday ? "bg-primary/10" : ""}`}
       >
         <td className={`p-3 ${isPaid ? "line-through decoration-foreground/40" : ""}`}>
           <span className="flex items-center gap-1.5">
@@ -214,8 +215,17 @@ export function BudgetView() {
               </span>
             )}
         </td>
-        <td className="p-3 font-mono text-sm tabular-nums">
+        <td
+          className={`p-3 font-mono text-sm tabular-nums ${
+            isDueToday ? "font-semibold text-primary" : ""
+          }`}
+        >
           {formatDateForDisplay(entry.due_date)}
+          {isDueToday && (
+            <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              Today
+            </span>
+          )}
         </td>
         <td className="p-3 text-right space-x-2">
           {!isPaid && (

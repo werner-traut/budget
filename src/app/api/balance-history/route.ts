@@ -124,11 +124,13 @@ export async function POST(req: Request) {
       ? Number(adhocSettings.daily_amount)
       : DEFAULT_DAILY_AMOUNT;
 
-    // A row is a baseline (cumulative anchored at 0) when it was explicitly
-    // reset, or when there is no prior tracked snapshot to chain from. Rows
-    // recorded before this feature have a null cumulative and so cannot anchor.
+    // A row is a baseline (cumulative anchored, possibly to a nonzero
+    // override) when it was explicitly reset, or when there is no prior
+    // tracked snapshot to chain from. Rows recorded before this feature have
+    // a null cumulative and so cannot anchor.
+    const isExistingBaseline = existing?.adhoc_baseline === true;
     const isBaseline =
-      existing?.adhoc_baseline === true ||
+      isExistingBaseline ||
       previous === null ||
       previous.adhoc_cumulative === null;
 
@@ -142,9 +144,13 @@ export async function POST(req: Request) {
     };
 
     if (isBaseline) {
+      // Re-saving an already-baselined row (e.g. re-visiting the Summary tab
+      // after an override) must keep the anchored value, not reset it to 0.
       adhocFields = {
         adhoc_delta: 0,
-        adhoc_cumulative: 0,
+        adhoc_cumulative: isExistingBaseline
+          ? Number(existing.adhoc_cumulative)
+          : 0,
         adhoc_salary_received: 0,
         adhoc_expenses_due: 0,
         adhoc_budget: 0,

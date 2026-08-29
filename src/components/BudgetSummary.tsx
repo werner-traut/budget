@@ -34,6 +34,8 @@ export function BudgetSummary() {
   const [isEditingAdhoc, setIsEditingAdhoc] = useState(false);
   const [newDailyAmount, setNewDailyAmount] = useState("");
   const [isResetting, setIsResetting] = useState(false);
+  const [isOverriding, setIsOverriding] = useState(false);
+  const [overrideValue, setOverrideValue] = useState("");
   const [adhocHistory, setAdhocHistory] = useState<BalanceHistory[]>([]);
   const [monthlyPayPeriods, setMonthlyPayPeriods] = useState<
     PayPeriod[] | null
@@ -147,11 +149,13 @@ export function BudgetSummary() {
     saveBalanceHistory();
   }, [periods, dailyBalance, adhocSettings.daily_amount, fetchAdhocHistory]);
 
-  const resetAdhocBaseline = async () => {
+  const resetAdhocBaseline = async (value?: number) => {
     setIsResetting(true);
     try {
       const response = await fetch("/api/balance-history/reset", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(value === undefined ? {} : { value }),
       });
       if (!response.ok) throw new Error("Failed to reset adhoc savings");
       await fetchAdhocHistory();
@@ -161,6 +165,14 @@ export function BudgetSummary() {
     } finally {
       setIsResetting(false);
     }
+  };
+
+  const overrideAdhocBaseline = async () => {
+    const value = parseFloat(overrideValue);
+    if (Number.isNaN(value)) return;
+    await resetAdhocBaseline(value);
+    setIsOverriding(false);
+    setOverrideValue("");
   };
 
   const updateAdhocAmount = async () => {
@@ -299,15 +311,67 @@ export function BudgetSummary() {
                   no tracked snapshots yet
                 </div>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2 h-7 px-2 text-xs"
-                onClick={resetAdhocBaseline}
-                disabled={isResetting}
-              >
-                {isResetting ? "Resetting…" : "Reset baseline"}
-              </Button>
+              {isOverriding ? (
+                <div className="mt-2 flex items-center space-x-1.5">
+                  <Input
+                    type="number"
+                    value={overrideValue}
+                    onChange={(e) => setOverrideValue(e.target.value)}
+                    step="0.01"
+                    placeholder="0.00"
+                    autoFocus
+                    className="h-7 w-24 px-2 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={overrideAdhocBaseline}
+                    disabled={isResetting || overrideValue === ""}
+                  >
+                    {isResetting ? "Setting…" : "Set"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setIsOverriding(false);
+                      setOverrideValue("");
+                    }}
+                    disabled={isResetting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-2 flex items-center space-x-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => resetAdhocBaseline()}
+                    disabled={isResetting}
+                  >
+                    {isResetting ? "Resetting…" : "Reset baseline"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setOverrideValue(
+                        adhocSavings !== null
+                          ? adhocSavings.cumulative.toFixed(2)
+                          : ""
+                      );
+                      setIsOverriding(true);
+                    }}
+                    disabled={isResetting}
+                  >
+                    Override…
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="text-right">
               {adhocSavings !== null ? (

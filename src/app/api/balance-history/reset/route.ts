@@ -2,16 +2,25 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { getTodayInUTC } from "@/lib/utils/date";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
+// Empty/absent body resets to zero; a body with `value` overrides the
+// baseline to a known figure instead (e.g. a manually reconciled total).
+const resetSchema = z.object({
+  value: z.number().finite().optional(),
+});
+
 /**
- * Resets the cumulative adhoc savings baseline. Marks today's snapshot as a
- * baseline (cumulative anchored at 0) so subsequent snapshots accumulate from
- * zero again. Useful when a known one-off cash movement has skewed the running
- * total. Historical rows are left untouched.
+ * Resets (or overrides) the cumulative adhoc savings baseline. Marks today's
+ * snapshot as a baseline anchored at the given value (0 by default) so
+ * subsequent snapshots accumulate from there again. Useful when a known
+ * one-off cash movement has skewed the running total, or when the true
+ * running total is already known and should be entered directly. Historical
+ * rows are left untouched.
  */
-export async function POST() {
+export async function POST(req: Request) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -19,6 +28,10 @@ export async function POST() {
   }
 
   try {
+    const rawBody = await req.text();
+    const { value } = resetSchema.parse(rawBody ? JSON.parse(rawBody) : {});
+    const baselineValue = value ?? 0;
+
     const userId = session.user.id;
     const today = getTodayInUTC();
 
@@ -38,7 +51,7 @@ export async function POST() {
     const baseFields = {
       adhoc_baseline: true,
       adhoc_delta: 0,
-      adhoc_cumulative: 0,
+      adhoc_cumulative: baselineValue,
       adhoc_salary_received: 0,
       adhoc_expenses_due: 0,
       adhoc_budget: 0,
@@ -63,6 +76,16 @@ export async function POST() {
 
     return NextResponse.json(balanceHistory);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return new NextResponse(
+        JSON.stringify({ message: "Invalid input", errors: error.issues }),
+        { status: 400 }
+      );
+    }
+    if (error instanceof SyntaxError) {
+      return new NextResponse("Invalid JSON body", { status: 400 });
+    }
+
     console.error("Failed to reset adhoc savings baseline:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }

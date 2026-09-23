@@ -33,7 +33,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "scripts/test-connection.js",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [

@@ -112,7 +112,7 @@ Required in `.env.local`:
 
 ### Key Files
 
-- `src/lib/prisma.ts`: Prisma client singleton (Edge-compatible with @prisma/extension-accelerate)
+- `src/lib/prisma.ts`: Prisma client singleton, connects via `@prisma/adapter-pg` driver adapter over a `pg.Pool` (no Prisma Accelerate)
 - `src/auth.ts`: NextAuth configuration with Edge runtime
 - `src/middleware.ts`: Route protection middleware
 - `prisma/schema.prisma`: Database schema with RLS

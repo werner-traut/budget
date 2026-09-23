@@ -54,8 +54,6 @@
     "prisma": "^7.10.0",
     "release-it": "^21.1.0",
     "tailwindcss": "^4.3.3",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3",
     "vitest": "^5.0.1"
   }

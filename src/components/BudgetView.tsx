@@ -372,6 +372,7 @@ export function BudgetView() {
 
       {(showEntryForm || editingEntry) && (
         <BudgetEntryForm
+          key={editingEntry?.id ?? "new"}
           isOpen={true}
           onClose={() => {
             setShowEntryForm(false);

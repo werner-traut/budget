@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateForDisplay } from "@/lib/utils/date";
+
+const subscribeNoop = () => () => {};
 
 interface DailyBalanceModalProps {
   isOpen: boolean;
@@ -22,13 +24,13 @@ export function DailyBalanceModal({
   const [balance, setBalance] = useState(currentBalance?.toString() || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [mounted, setMounted] = useState(false);
+  // False during SSR and hydration, true on the client: portals need document.body.
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  );
   const balanceInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
 
   useEffect(() => {
     if (isOpen && balanceInputRef.current) {

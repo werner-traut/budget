@@ -41,22 +41,25 @@ export function BudgetSummary() {
     PayPeriod[] | null
   >(null);
 
-  const fetchAdhocHistory = useCallback(async () => {
-    // The savings total chains since the last baseline reset, which may predate
-    // the current month, so fetch a wide window rather than month-to-date.
-    try {
-      const response = await fetch(`/api/balance-history?days=3650`);
-      setAdhocHistory(
-        await parseApiResponse(
-          response,
-          balanceHistoryListSchema,
-          "Failed to fetch adhoc history"
+  const fetchAdhocHistory = useCallback(
+    () =>
+      // The savings total chains since the last baseline reset, which may
+      // predate the current month, so fetch a wide window rather than
+      // month-to-date.
+      fetch(`/api/balance-history?days=3650`)
+        .then((response) =>
+          parseApiResponse(
+            response,
+            balanceHistoryListSchema,
+            "Failed to fetch adhoc history"
+          )
         )
-      );
-    } catch {
-      // Non-fatal: the savings card simply stays hidden.
-    }
-  }, []);
+        .then(setAdhocHistory)
+        .catch(() => {
+          // Non-fatal: the savings card simply stays hidden.
+        }),
+    []
+  );
 
   useEffect(() => {
     fetchAdhocHistory();

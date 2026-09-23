@@ -81,12 +81,36 @@ const AXIS_TICK = {
 
 type LineKey = (typeof LINE_CONFIG)[number]["key"];
 
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-md border border-border bg-card p-4 shadow-md">
+        <p className="mb-1 font-mono text-xs font-semibold uppercase tracking-[0.12em]">
+          {label}
+        </p>
+        {payload.map((entry: CustomTooltipPayloadItem) => (
+          <p
+            key={entry.name}
+            className="font-mono text-xs tabular-nums"
+            style={{ color: entry.color }}
+          >
+            {entry.name}: ${entry.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
+
 function BalanceGraph() {
   const [duration, setDuration] = useState("30");
   const [customDate, setCustomDate] = useState("");
-  const [history, setHistory] = useState<BalanceHistory[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    key: string | null;
+    history: BalanceHistory[];
+    error: string | null;
+  }>({ key: null, history: [], error: null });
   const [visibleLines, setVisibleLines] = useState<Record<LineKey, boolean>>({
     "Bank Balance": true,
     "Trend": true,
@@ -99,36 +123,46 @@ function BalanceGraph() {
   const toggleLine = (key: LineKey) =>
     setVisibleLines((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const fetchBalanceHistory = async (duration: string, startDate?: string) => {
-    try {
-      if (duration === "custom" && !startDate) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      let url = `/api/balance-history?days=${duration}`;
-      if (duration === "custom" && startDate) {
-        url = `/api/balance-history?startDate=${startDate}`;
-      }
-
-      const response = await fetch(url);
-      const data = await parseApiResponse(
-        response,
-        balanceHistoryListSchema,
-        'Failed to fetch balance history'
-      );
-      setHistory(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch balance history');
-      console.error('Error fetching balance history:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Custom ranges only load once a start date has been picked.
+  const requestUrl =
+    duration === "custom"
+      ? customDate
+        ? `/api/balance-history?startDate=${customDate}`
+        : null
+      : `/api/balance-history?days=${duration}`;
+  const { history, error } = result;
+  const isLoading = requestUrl !== null && result.key !== requestUrl;
 
   useEffect(() => {
-    fetchBalanceHistory(duration, customDate);
-  }, [duration, customDate]);
+    if (!requestUrl) return;
+    let cancelled = false;
+
+    fetch(requestUrl)
+      .then((response) =>
+        parseApiResponse(
+          response,
+          balanceHistoryListSchema,
+          'Failed to fetch balance history'
+        )
+      )
+      .then((data) => {
+        if (!cancelled) setResult({ key: requestUrl, history: data, error: null });
+      })
+      .catch((err) => {
+        console.error('Error fetching balance history:', err);
+        if (!cancelled) {
+          setResult((prev) => ({
+            key: requestUrl,
+            history: prev.history,
+            error: err instanceof Error ? err.message : 'Failed to fetch balance history',
+          }));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestUrl]);
 
   if (isLoading) {
     return (
@@ -210,28 +244,6 @@ function BalanceGraph() {
   const minValue = allValues.length ? Math.min(...allValues) : 0;
   const maxValue = allValues.length ? Math.max(...allValues) : 0;
   const padding = Math.max((maxValue - minValue) * 0.1, 1); // 10% padding
-
-  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-md border border-border bg-card p-4 shadow-md">
-          <p className="mb-1 font-mono text-xs font-semibold uppercase tracking-[0.12em]">
-            {label}
-          </p>
-          {payload.map((entry: CustomTooltipPayloadItem) => (
-            <p
-              key={entry.name}
-              className="font-mono text-xs tabular-nums"
-              style={{ color: entry.color }}
-            >
-              {entry.name}: ${entry.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   // Gradient for savings chart: green above 0, red below
   const savingsValues = data

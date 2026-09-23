@@ -41,14 +41,6 @@ export function BudgetEntryForm({
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setName(initialValues?.name || "");
-    setAmount(initialValues?.amount?.toString() || "");
-    setDate(formatDateForDisplay(initialValues?.date ?? new Date()));
-  }, [initialValues, isOpen]);
-
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {

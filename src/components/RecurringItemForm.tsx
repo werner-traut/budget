@@ -9,6 +9,7 @@ import type {
   RecurringItem,
   UpdateRecurringItemDto,
 } from "@/types/recurring";
+import { Button } from "@/components/ui/button";
 
 interface RecurringItemFormProps {
   item?: RecurringItem;
@@ -75,12 +76,15 @@ export function RecurringItemForm({ item, onClose, onSubmit }: RecurringItemForm
           <CardTitle className="text-xl font-semibold">
             {item ? "Edit Recurring Item" : "New Recurring Item"}
           </CardTitle>
-          <button
+          <Button
+            variant="subtle"
+            size="icon-sm"
             onClick={onClose}
-            className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-4 top-4"
+            aria-label="Close"
           >
             <XCircle className="w-6 h-6" />
-          </button>
+          </Button>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -189,13 +193,13 @@ export function RecurringItemForm({ item, onClose, onSubmit }: RecurringItemForm
               </label>
             )}
             {error && <div className="text-sm text-destructive">{error}</div>}
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-md bg-primary py-2 px-4 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full"
             >
               {isSubmitting ? "Saving..." : "Save Recurring Item"}
-            </button>
+            </Button>
           </form>
         </CardContent>
       </Card>

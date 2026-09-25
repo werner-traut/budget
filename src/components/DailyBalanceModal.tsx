@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { Button } from "@/components/ui/button";
 
 const subscribeNoop = () => () => {};
 
@@ -66,12 +67,15 @@ export function DailyBalanceModal({
           <CardTitle className="text-xl font-semibold">
             Update Bank Balance
           </CardTitle>
-          <button
+          <Button
+            variant="subtle"
+            size="icon-sm"
             onClick={onClose}
-            className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-4 top-4"
+            aria-label="Close"
           >
             <XCircle className="w-6 h-6" />
-          </button>
+          </Button>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -94,13 +98,13 @@ export function DailyBalanceModal({
             <div className="font-mono text-xs tabular-nums text-muted-foreground">
               Last updated: {formatDateForDisplay(new Date())}
             </div>
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-md bg-primary py-2 px-4 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full"
             >
               {isSubmitting ? "Updating..." : "Update Balance"}
-            </button>
+            </Button>
           </form>
         </CardContent>
       </Card>

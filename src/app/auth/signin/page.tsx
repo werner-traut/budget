@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { Button } from "@/components/ui/button";
 
 const devBypassEnabled =
   process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
@@ -48,9 +49,10 @@ export default function SignIn() {
             Sign in to open your ledger
           </p>
 
-          <button
+          <Button
             onClick={handleGoogleSignIn}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-foreground/25 bg-background px-4 py-2.5 text-sm font-medium tracking-wide transition-colors hover:bg-accent hover:border-primary/40"
+            variant="outline"
+            className="h-10 w-full border-foreground/25 bg-background hover:border-primary/40"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -71,15 +73,16 @@ export default function SignIn() {
               />
             </svg>
             Sign in with Google
-          </button>
+          </Button>
 
           {devBypassEnabled && (
-            <button
+            <Button
               onClick={handleDevSignIn}
-              className="mt-3 w-full rounded-md bg-destructive/90 px-4 py-2 text-sm font-medium tracking-wide text-destructive-foreground transition-colors hover:bg-destructive"
+              variant="destructive"
+              className="mt-3 w-full bg-destructive/90 shadow-none hover:bg-destructive"
             >
               Dev sign in (bypass — local only)
-            </button>
+            </Button>
           )}
         </div>
 

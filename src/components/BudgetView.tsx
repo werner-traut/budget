@@ -229,44 +229,54 @@ export function BudgetView() {
         </td>
         <td className="p-3 text-right space-x-2">
           {!isPaid && (
-            <button
+            <Button
               onClick={() => handlePostponeEntry(entry)}
-              className="text-muted-foreground hover:text-primary p-1 transition-colors"
+              variant="subtle"
+              size="icon-sm"
+              className="hover:text-primary"
               title="Postpone due date by 1 day"
             >
               <CalendarPlus className="w-5 h-5" />
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             onClick={() => setEditingEntry(entry)}
-            className="text-muted-foreground hover:text-primary p-1 transition-colors"
+            variant="subtle"
+            size="icon-sm"
+            className="hover:text-primary"
             title={entry.source_recurring_id ? "Edit this occurrence" : "Edit"}
           >
             <Pencil className="w-5 h-5" />
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => handleDeleteEntry(entry.id)}
-            className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+            variant="subtle"
+            size="icon-sm"
+            className="hover:text-destructive"
             title="Delete"
           >
             <Trash2 className="w-5 h-5" />
-          </button>
+          </Button>
           {isPaid ? (
-            <button
+            <Button
               onClick={() => handleUnmarkPaid(entry)}
-              className="text-positive hover:text-positive/70 p-1 transition-colors"
+              variant="subtle"
+              size="icon-sm"
+              className="text-positive hover:text-positive/70"
               title="Mark as Unpaid"
             >
               <CheckCircle className="w-5 h-5 fill-accent" />
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={() => setMarkingPaidEntry(entry)}
-              className="text-muted-foreground/60 hover:text-positive p-1 transition-colors"
+              variant="subtle"
+              size="icon-sm"
+              className="text-muted-foreground/60 hover:text-positive"
               title="Mark as Paid"
             >
               <CheckCircle className="w-5 h-5" />
-            </button>
+            </Button>
           )}
         </td>
       </tr>
@@ -316,12 +326,9 @@ export function BudgetView() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Budget Entries</CardTitle>
-          <button
-            onClick={() => setShowEntryForm(true)}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-          >
+          <Button onClick={() => setShowEntryForm(true)}>
             Add Entry
-          </button>
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden">

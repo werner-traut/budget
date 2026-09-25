@@ -2,6 +2,7 @@ import { PayPeriod, PeriodType } from "@/types/periods";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { formatDateForAPI, formatDateForDisplay } from "@/lib/utils/date";
+import { Button } from "@/components/ui/button";
 
 export default function PayPeriodForm({
   period,
@@ -82,19 +83,16 @@ export default function PayPeriodForm({
             </div>
 
             <div className="flex justify-end space-x-2">
-              <button
+              <Button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                variant="subtle"
               >
                 Cancel
-              </button>
-              <button
-                type="submit"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-              >
+              </Button>
+              <Button type="submit">
                 Save
-              </button>
+              </Button>
             </div>
           </form>
         </CardContent>

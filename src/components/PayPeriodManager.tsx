@@ -8,6 +8,7 @@ import { formatDateForDisplay } from "@/lib/utils/date";
 import { calculateNextPayPeriod } from "@/lib/utils/pay-period";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const PERIOD_TYPES: PeriodType[] = [
   "CURRENT_PERIOD",
@@ -174,13 +175,9 @@ export function PayPeriodManager() {
         <h2 className="font-display text-2xl font-semibold tracking-tight">
           Pay Periods
         </h2>
-        <button
-          onClick={handleAddPeriod}
-          disabled={isAnimating}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
+        <Button onClick={handleAddPeriod} disabled={isAnimating}>
           {isAnimating ? "Adding..." : "Add Period"}
-        </button>
+        </Button>
       </div>
 
       <div className="relative w-full overflow-hidden">

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { XCircle } from "lucide-react";
 import type { BudgetEntry } from "@/types/budget";
+import { Button } from "@/components/ui/button";
 
 interface MarkPaidDialogProps {
   entry: BudgetEntry;
@@ -49,12 +50,15 @@ export function MarkPaidDialog({ entry, onClose, onConfirm }: MarkPaidDialogProp
           <CardTitle className="text-xl font-semibold">
             Mark &ldquo;{entry.name}&rdquo; as Paid
           </CardTitle>
-          <button
+          <Button
+            variant="subtle"
+            size="icon-sm"
             onClick={onClose}
-            className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-4 top-4"
+            aria-label="Close"
           >
             <XCircle className="w-6 h-6" />
-          </button>
+          </Button>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,13 +81,14 @@ export function MarkPaidDialog({ entry, onClose, onConfirm }: MarkPaidDialogProp
               </p>
             </div>
             {error && <div className="text-sm text-destructive">{error}</div>}
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-md bg-positive py-2 px-4 text-sm font-medium tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-positive/90 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="positive"
+              className="w-full"
             >
               {isSubmitting ? "Saving..." : "Mark as Paid"}
-            </button>
+            </Button>
           </form>
         </CardContent>
       </Card>
